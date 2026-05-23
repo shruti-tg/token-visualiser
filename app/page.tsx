@@ -40,7 +40,7 @@ interface Stats {
 }
 
 export default function Home() {
-  const [palette, setPalette] = useState("workshop");
+  const [palette, setPalette] = useState("cream");
   const [stats, setStats] = useState<Stats | null>(null);
   const [sourceLabel, setSourceLabel] = useState("none loaded");
   const [error, setError] = useState<string | null>(null);
