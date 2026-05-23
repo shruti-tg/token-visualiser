@@ -43,6 +43,7 @@ export default function Home() {
   const [palette, setPalette] = useState("workshop");
   const [stats, setStats] = useState<Stats | null>(null);
   const [sourceLabel, setSourceLabel] = useState("none loaded");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     document.body.setAttribute("data-palette", palette);
@@ -142,12 +143,46 @@ export default function Home() {
   };
 
   const handleFileChange = (file: File) => {
+    // Validate file extension
+    if (!file.name.toLowerCase().endsWith(".jsonl")) {
+      setError(
+        `❌ wrong file type. we need .jsonl files (you uploaded "${file.name.split(".").pop()}")`,
+      );
+      setStats(null);
+      return;
+    }
+
+    setError(null);
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const parsed = parseTranscript(text);
-      setStats(parsed);
-      setSourceLabel(file.name);
+      try {
+        const text = e.target?.result as string;
+        if (!text.trim()) {
+          setError(
+            "❌ file is empty. drop a claude code session with message.usage blocks.",
+          );
+          setStats(null);
+          return;
+        }
+        const parsed = parseTranscript(text);
+        if (parsed.turns.length === 0) {
+          setError(
+            "❌ no valid data found. we need a claude code session jsonl with message.usage blocks. try a demo?",
+          );
+          setStats(null);
+          return;
+        }
+        setStats(parsed);
+        setSourceLabel(file.name);
+        setError(null);
+      } catch {
+        setError("❌ couldn't read file. make sure it's valid .jsonl format.");
+        setStats(null);
+      }
+    };
+    reader.onerror = () => {
+      setError("❌ error reading file. try again?");
+      setStats(null);
     };
     reader.readAsText(file);
   };
@@ -367,6 +402,16 @@ export default function Home() {
             }
           }}
         />
+
+        {/* Error Message */}
+        {error && (
+          <div className="error-banner">
+            {error}
+            <button className="error-close" onClick={() => setError(null)}>
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Try Chips */}
         <div className="try-row">
@@ -1141,7 +1186,7 @@ function Report({ stats }: { stats: Stats }) {
       <div className="grid-3">
         <div className="card">
           <h3 className="ctitle">itemized</h3>
-          <p className="cdek">every line of the invoice, no padding.</p>
+          <p className="cdek">every line of the invoice.</p>
           <div className="bill-list">
             <div className="bill-line">
               <span className="l">input · {fmtInt(T.in)} tok @ $3</span>
