@@ -1,36 +1,112 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Token Ledger
+
+A beautiful, client-side tool to visualize Claude API token usage from session logs.
+
+## Features
+
+- 📊 **Token Visualization** - See exactly where your tokens are going with interactive charts
+- 💰 **Cost Breakdown** - Understand the financial impact of cache hits vs misses
+- 📈 **Session Analytics** - Track API calls, context growth, and tool usage
+- 🎨 **Multiple Themes** - Choose from 5 beautiful color palettes (workshop, cream, sage, plum, slate)
+- 🔒 **100% Client-Side** - All processing happens in your browser, no data uploads
+- ⚡ **Fast & Responsive** - Instant parsing and rendering of session data
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ and npm
+
+### Installation
+
+```bash
+npm install
+```
+
+### Running Locally
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Usage
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Drop a file**: Click on the drop zone or drag a `.jsonl` Claude Code session log into the app
+2. **View results**: The app will instantly parse and display:
+   - Summary stats (API calls, token counts, cost, cache savings)
+   - Token flow visualization across calls
+   - Context growth over the session
+   - Cost comparison with/without caching
+   - Detailed ledger of every API call
+   - Tool usage breakdown
 
-## Learn More
+## File Format
 
-To learn more about Next.js, take a look at the following resources:
+The app expects Claude Code session logs in JSONL format with the following structure:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```json
+{
+  "message": {
+    "role": "assistant",
+    "id": "msg_123",
+    "usage": {
+      "input_tokens": 1000,
+      "output_tokens": 500,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0
+    },
+    "content": [
+      {
+        "type": "tool_use",
+        "name": "Read"
+      }
+    ]
+  },
+  "timestamp": 1234567890,
+  "time": "2024-01-01T12:00:00Z"
+}
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Architecture
 
-## Deploy on Vercel
+- **Framework**: Next.js 14 with TypeScript
+- **Styling**: Custom CSS with CSS variables for theme support
+- **Fonts**: Bricolage Grotesque, Instrument Serif, JetBrains Mono
+- **Design**: Hand-drawn, editorial aesthetic with rounded corners and shadows
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Pricing Reference
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The tool uses official Claude Sonnet 4.6 pricing:
+- Input tokens: $3.00 / Mtok
+- Output tokens: $15.00 / Mtok
+- Cache write: $3.75 / Mtok (5-minute cache)
+- Cache read: $0.30 / Mtok (90% discount!)
+
+## Development
+
+### Build for production
+
+```bash
+npm run build
+npm start
+```
+
+### Type checking
+
+```bash
+npx tsc --noEmit
+```
+
+## Design Palettes
+
+The app ships with 5 carefully curated color palettes:
+
+1. **Workshop** (default) - Warm editorial palette with coral and denim
+2. **Cream** - Bright and energetic with vibrant accents
+3. **Sage** - Muted earth tones with green and rust
+4. **Plum** - Cool purples with pink and blue accents
+5. **Slate** - Professional grays with coral and blue highlights
+
+Switch between palettes using the fixed palette switcher in the top-right corner.
