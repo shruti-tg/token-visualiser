@@ -329,7 +329,7 @@ export default function Home() {
           drop your claude code session. we tally every call, name every{" "}
           <em>cache miss</em>, and snitch on the{" "}
           <span className="coral">output bloat</span>. all client-side. nothing
-          leaves the machine. no notes <em>(some notes)</em>.
+          leaves the machine.
         </p>
 
         {/* Drop Card */}
