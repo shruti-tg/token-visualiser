@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 // Anthropic list pricing ($/M tokens). Cache write = 1.25× input, cache read = 0.1× input.
@@ -437,18 +438,23 @@ export default function Home() {
   return (
     <div style={{ backgroundColor: "var(--cream)" }}>
       <div className="page">
-        {/* Palette Switcher */}
-        <div className="palette-switcher">
-          <span className="ps-label">palette</span>
-          {["workshop", "cream", "sage", "plum", "slate"].map((p) => (
-            <button
-              key={p}
-              className={`ps-swatch ${palette === p ? "active" : ""}`}
-              data-pal={p}
-              onClick={() => setPalette(p)}
-              aria-label={`${p} palette`}
-            />
-          ))}
+        {/* Top bar: guide link + palette switcher */}
+        <div className="top-bar">
+          <Link href="/guide" className="nav-link" title="open the field guide">
+            <span>the field guide</span> <span className="ar">→</span>
+          </Link>
+          <div className="palette-switcher">
+            <span className="ps-label">palette</span>
+            {["workshop", "cream", "sage", "plum", "slate"].map((p) => (
+              <button
+                key={p}
+                className={`ps-swatch ${palette === p ? "active" : ""}`}
+                data-pal={p}
+                onClick={() => setPalette(p)}
+                aria-label={`${p} palette`}
+              />
+            ))}
+          </div>
         </div>
 
         {/* Tags */}
