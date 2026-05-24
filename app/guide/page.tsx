@@ -541,7 +541,7 @@ export default function Guide() {
                 />
               </svg>
             </span>
-            <em>(or most of them.)</em>
+            <em>(the expensive ones.)</em>
           </span>
         </h1>
 
