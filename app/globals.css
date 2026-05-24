@@ -1152,6 +1152,74 @@ footer.foot .right {
   color: var(--coral-2);
 }
 
+/* TAKEAWAYS */
+.takeaways-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.takeaway {
+  background: var(--paper);
+  border: 2.5px solid var(--ink);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  padding: 26px 26px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 220px;
+  position: relative;
+}
+
+.takeaway.coral {
+  background: var(--coral);
+}
+
+.takeaway.mint {
+  background: var(--mint);
+}
+
+.takeaway.pink {
+  background: var(--pink);
+}
+
+.takeaway.blue {
+  background: var(--blue);
+  color: var(--paper);
+}
+
+.takeaway .rank {
+  font-family: "Instrument Serif", serif;
+  font-style: italic;
+  font-size: 20px;
+  color: var(--ink-2);
+  letter-spacing: 0.02em;
+}
+
+.takeaway.blue .rank {
+  color: #dbe3f7;
+}
+
+.takeaway .tt-title {
+  font-weight: 800;
+  font-size: 36px;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  margin: 4px 0 6px;
+  font-variation-settings: "wdth" 95;
+}
+
+.takeaway .tt-detail {
+  margin: 0;
+  font-family: "Instrument Serif", serif;
+  font-size: 20px;
+  line-height: 1.3;
+  color: var(--ink-2);
+}
+
+.takeaway.blue .tt-detail {
+  color: #e3eaf9;
+}
+
 /* TABLET: 768px - 1080px */
 @media (max-width: 1080px) {
   .page {

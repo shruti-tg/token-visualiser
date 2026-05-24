@@ -2,13 +2,59 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Claude Sonnet 4.6 pricing (official as of 2026)
-const PRICE = {
+// Anthropic list pricing ($/M tokens). Cache write = 1.25× input, cache read = 0.1× input.
+interface ModelPricing {
+  label: string;
+  input: number;
+  output: number;
+  cw: number;
+  cr: number;
+}
+
+const DEFAULT_PRICING: ModelPricing = {
+  label: "Sonnet 4.6",
   input: 3.0,
   output: 15.0,
-  cache_creation: 3.75,
-  cache_read: 0.3,
+  cw: 3.75,
+  cr: 0.3,
 };
+
+function prettyModelName(id: string): string {
+  const fam = (id.toLowerCase().match(/opus|sonnet|haiku/) || [])[0];
+  if (!fam) return id;
+  const Fam = fam[0].toUpperCase() + fam.slice(1);
+  const parts = id.toLowerCase().split(fam);
+  const after = (parts[1] || "").match(/^[-_]?(\d+(?:[-_.]\d+)?)/);
+  const before = (parts[0] || "").match(/(\d+(?:[-_.]\d+)?)[-_]?$/);
+  const ver = (
+    after && after[1].length <= 5
+      ? after[1]
+      : before && before[1].length <= 5
+        ? before[1]
+        : ""
+  ).replace(/[-_]/g, ".");
+  return ver ? `${Fam} ${ver}` : Fam;
+}
+
+function modelPricing(modelId: string | null): ModelPricing {
+  if (!modelId) return DEFAULT_PRICING;
+  const id = modelId.toLowerCase();
+  const label = prettyModelName(modelId);
+  if (id.includes("opus"))
+    return { label, input: 15, output: 75, cw: 18.75, cr: 1.5 };
+  if (id.includes("haiku")) {
+    if (/3[-_]5/.test(id))
+      return { label, input: 0.8, output: 4, cw: 1, cr: 0.08 };
+    return { label, input: 1, output: 5, cw: 1.25, cr: 0.1 };
+  }
+  if (id.includes("sonnet"))
+    return { label, input: 3, output: 15, cw: 3.75, cr: 0.3 };
+  return { ...DEFAULT_PRICING, label };
+}
+
+function formatRate(n: number): string {
+  return "$" + (Number.isInteger(n) ? n.toFixed(0) : n.toFixed(2));
+}
 
 interface Turn {
   idx: number;
@@ -19,6 +65,7 @@ interface Turn {
   cRead: number;
   contextSize: number;
   tools: string[];
+  model: string | null;
   actualCost: number;
   noCacheCost: number;
 }
@@ -26,6 +73,11 @@ interface Turn {
 interface Stats {
   turns: Turn[];
   toolCounts: Record<string, number>;
+  modelCounts: Record<string, number>;
+  dominant: ModelPricing;
+  dominantId: string | null;
+  multiModel: boolean;
+  costByCat: { in: number; out: number; cw: number; cr: number };
   earliestTs: string | null;
   latestTs: string | null;
   totals: {
@@ -37,6 +89,14 @@ interface Stats {
     noCache: number;
   };
   savedPct: number;
+}
+
+type TakeawayKind = "" | "coral" | "mint" | "pink" | "blue";
+interface Takeaway {
+  score: number;
+  kind: TakeawayKind;
+  title: string;
+  detail: string;
 }
 
 export default function Home() {
@@ -54,6 +114,7 @@ export default function Home() {
     const seen = new Set<string>();
     const turns: Turn[] = [];
     const toolCounts: Record<string, number> = {};
+    const modelCounts: Record<string, number> = {};
     let earliestTs: string | null = null;
     let latestTs: string | null = null;
 
@@ -78,6 +139,9 @@ export default function Home() {
       const outTok = u.output_tokens || 0;
       const cWrite = u.cache_creation_input_tokens || 0;
       const cRead = u.cache_read_input_tokens || 0;
+      const modelId: string | null = msg.model || null;
+      const p = modelPricing(modelId);
+      if (modelId) modelCounts[modelId] = (modelCounts[modelId] || 0) + 1;
 
       const tools: string[] = [];
       if (Array.isArray(msg.content)) {
@@ -96,13 +160,13 @@ export default function Home() {
       }
 
       const actualCost =
-        (inTok * PRICE.input) / 1e6 +
-        (outTok * PRICE.output) / 1e6 +
-        (cWrite * PRICE.cache_creation) / 1e6 +
-        (cRead * PRICE.cache_read) / 1e6;
+        (inTok * p.input) / 1e6 +
+        (outTok * p.output) / 1e6 +
+        (cWrite * p.cw) / 1e6 +
+        (cRead * p.cr) / 1e6;
       const noCacheCost =
-        ((inTok + cWrite + cRead) * PRICE.input) / 1e6 +
-        (outTok * PRICE.output) / 1e6;
+        ((inTok + cWrite + cRead) * p.input) / 1e6 +
+        (outTok * p.output) / 1e6;
 
       turns.push({
         idx: turns.length + 1,
@@ -113,6 +177,7 @@ export default function Home() {
         cRead,
         contextSize: inTok + cWrite + cRead,
         tools,
+        model: modelId,
         actualCost,
         noCacheCost,
       });
@@ -130,9 +195,37 @@ export default function Home() {
       { in: 0, out: 0, cw: 0, cr: 0, actual: 0, noCache: 0 },
     );
 
+    // Per-turn pricing means category costs need a per-turn sum (mixed models).
+    const costByCat = turns.reduce(
+      (a, t) => {
+        const pp = modelPricing(t.model);
+        return {
+          in: a.in + (t.inTok * pp.input) / 1e6,
+          out: a.out + (t.outTok * pp.output) / 1e6,
+          cw: a.cw + (t.cWrite * pp.cw) / 1e6,
+          cr: a.cr + (t.cRead * pp.cr) / 1e6,
+        };
+      },
+      { in: 0, out: 0, cw: 0, cr: 0 },
+    );
+
+    const modelIds = Object.keys(modelCounts);
+    const dominantId =
+      modelIds.length > 0
+        ? modelIds.reduce((a, b) =>
+            modelCounts[b] > modelCounts[a] ? b : a,
+          )
+        : null;
+    const dominant = modelPricing(dominantId);
+
     return {
       turns,
       toolCounts,
+      modelCounts,
+      dominant,
+      dominantId,
+      multiModel: modelIds.length > 1,
+      costByCat,
       earliestTs,
       latestTs,
       totals: tot,
@@ -279,6 +372,7 @@ export default function Home() {
         message: {
           id: `msg_${kind}_${i}`,
           role: "assistant",
+          model: "claude-sonnet-4-6-20251001",
           content: toolNames.map((n) => ({ type: "tool_use", name: n })),
           usage: {
             input_tokens,
@@ -452,7 +546,7 @@ export default function Home() {
 
         {/* Footer */}
         <footer className="foot">
-          <em>typeset in bricolage grotesque &amp; instrument serif.</em>
+          <em>no tokens were harmed in the making of this report.</em>
           <span className="right">source · {sourceLabel}</span>
         </footer>
       </div>
@@ -859,6 +953,137 @@ function formatMoneyShort(n: number): string {
   return "$" + n.toFixed(3);
 }
 
+function computeTakeaways(stats: Stats): Takeaway[] {
+  const T = stats.totals;
+  const turns = stats.turns;
+  const n = turns.length;
+  const totalIn = T.in + T.cw + T.cr;
+  const candidates: Takeaway[] = [];
+
+  // Cache-read ratio: cold opening (bad) or cache hero (good)
+  if (n >= 3 && totalIn > 0) {
+    const ratio = T.cr / totalIn;
+    if (ratio < 0.65) {
+      candidates.push({
+        score: (0.65 - ratio) * 2,
+        kind: "coral",
+        title: "cold opening",
+        detail: `only ${Math.round(ratio * 100)}% of input came from cache. you paid full price on ${formatCompact(T.cw)} fresh tokens.`,
+      });
+    } else if (ratio > 0.88) {
+      candidates.push({
+        score: (ratio - 0.88) * 2,
+        kind: "mint",
+        title: "cache hero",
+        detail: `${Math.round(ratio * 100)}% of input was reused. you played this one right.`,
+      });
+    }
+  }
+
+  // The gnarly one: most expensive call vs median
+  if (n >= 4) {
+    const sorted = [...turns].sort((a, b) => a.actualCost - b.actualCost);
+    const median = sorted[Math.floor(sorted.length / 2)].actualCost || 0.0001;
+    const max = sorted[sorted.length - 1];
+    const ratio = max.actualCost / median;
+    if (ratio > 3) {
+      candidates.push({
+        score: Math.min((ratio - 3) / 4, 2),
+        kind: "pink",
+        title: "the gnarly one",
+        detail: `call #${max.idx} burned ${formatMoneyShort(max.actualCost)} — about ${Math.round(ratio)}× the median turn.`,
+      });
+    }
+  }
+
+  // Output bloat: share of turns with heavy output
+  const heavyOut = turns.filter((t) => t.outTok > 800);
+  if (n >= 5 && heavyOut.length / n > 0.2) {
+    const pct = heavyOut.length / n;
+    candidates.push({
+      score: pct * 1.4,
+      kind: "mint",
+      title: "output bloat",
+      detail: `${heavyOut.length} of ${n} calls spat out 800+ tokens. output is where the $15/M really bites.`,
+    });
+  }
+
+  // Context creep: growth from first to last turn
+  if (n >= 4) {
+    const first = Math.max(turns[0].contextSize, 1);
+    const last = turns[n - 1].contextSize;
+    const growth = last / first;
+    if (growth > 4) {
+      candidates.push({
+        score: Math.min(Math.log2(growth) / 3, 1.6),
+        kind: "blue",
+        title: "context creep",
+        detail: `started at ${formatCompact(first)} tok, ended at ${formatCompact(last)} tok — ${growth.toFixed(1)}× heavier. /clear next time?`,
+      });
+    }
+  }
+
+  // Tool monopoly: one tool dominates
+  const toolEntries = Object.entries(stats.toolCounts);
+  if (toolEntries.length >= 2) {
+    const total = toolEntries.reduce((a, [, c]) => a + c, 0);
+    const ranked = [...toolEntries].sort((a, b) => b[1] - a[1]);
+    const topPct = ranked[0][1] / total;
+    if (topPct > 0.4) {
+      candidates.push({
+        score: topPct - 0.2,
+        kind: "pink",
+        title: "the favorite",
+        detail: `${ranked[0][0]} got called ${ranked[0][1]} times — ${Math.round(topPct * 100)}% of all tool use.`,
+      });
+    }
+  }
+
+  // All talk: lots of zero-tool calls
+  const silent = turns.filter((t) => t.tools.length === 0).length;
+  if (n >= 6 && silent / n > 0.45) {
+    candidates.push({
+      score: (silent / n) * 0.9,
+      kind: "blue",
+      title: "all talk",
+      detail: `${silent} of ${n} calls (${Math.round((silent / n) * 100)}%) used zero tools — pure prose.`,
+    });
+  }
+
+  // The big bite: one call dominates cache writes
+  if (n >= 3 && T.cw > 0) {
+    const top = [...turns].sort((a, b) => b.cWrite - a.cWrite)[0];
+    const writeShare = top.cWrite / T.cw;
+    if (writeShare > 0.35 && top.cWrite > 2000) {
+      candidates.push({
+        score: writeShare,
+        kind: "coral",
+        title: "the big bite",
+        detail: `call #${top.idx} alone wrote ${formatCompact(top.cWrite)} tokens to cache — ${Math.round(writeShare * 100)}% of all writes.`,
+      });
+    }
+  }
+
+  // Fallback receipt — always present, low score so it only wins when nothing else fits
+  const minutes =
+    stats.earliestTs && stats.latestTs
+      ? Math.round(
+          (new Date(stats.latestTs).getTime() -
+            new Date(stats.earliestTs).getTime()) /
+            60000,
+        )
+      : 0;
+  candidates.push({
+    score: 0.05,
+    kind: "",
+    title: "the receipt",
+    detail: `${n} calls${minutes > 0 ? ` over ${minutes} min` : ""}. ${formatMoneyShort(T.actual)} all in.`,
+  });
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates.slice(0, 3);
+}
+
 function Report({ stats }: { stats: Stats }) {
   const T = stats.totals;
   const barChartRef = useRef<HTMLDivElement>(null);
@@ -951,6 +1176,8 @@ function Report({ stats }: { stats: Stats }) {
       );
     }
   }, [stats]);
+
+  const takeaways = computeTakeaways(stats);
 
   const statCards = [
     {
@@ -1179,7 +1406,9 @@ function Report({ stats }: { stats: Stats }) {
           the <em>damage.</em>
         </h2>
         <div className="note">
-          sonnet 4 list pricing. cache hits priced at 10% of input.
+          {stats.multiModel
+            ? `${stats.dominant.label} + ${Object.keys(stats.modelCounts).length - 1} other model${Object.keys(stats.modelCounts).length - 1 === 1 ? "" : "s"}. rates shown for ${stats.dominant.label}; totals blend per call.`
+            : `${stats.dominant.label} list pricing. cache hits priced at 10% of input.`}
         </div>
       </div>
 
@@ -1189,28 +1418,31 @@ function Report({ stats }: { stats: Stats }) {
           <p className="cdek">every line of the invoice.</p>
           <div className="bill-list">
             <div className="bill-line">
-              <span className="l">input · {fmtInt(T.in)} tok @ $3</span>
-              <span className="v">{fmtMoney((T.in * PRICE.input) / 1e6)}</span>
-            </div>
-            <div className="bill-line">
-              <span className="l">output · {fmtInt(T.out)} tok @ $15</span>
-              <span className="v">
-                {fmtMoney((T.out * PRICE.output) / 1e6)}
+              <span className="l">
+                input · {fmtInt(T.in)} tok @ {formatRate(stats.dominant.input)}
               </span>
+              <span className="v">{fmtMoney(stats.costByCat.in)}</span>
             </div>
             <div className="bill-line">
               <span className="l">
-                cache write · {fmtInt(T.cw)} tok @ $3.75
+                output · {fmtInt(T.out)} tok @{" "}
+                {formatRate(stats.dominant.output)}
               </span>
-              <span className="v">
-                {fmtMoney((T.cw * PRICE.cache_creation) / 1e6)}
-              </span>
+              <span className="v">{fmtMoney(stats.costByCat.out)}</span>
             </div>
             <div className="bill-line">
-              <span className="l">cache read · {fmtInt(T.cr)} tok @ $0.30</span>
-              <span className="v">
-                {fmtMoney((T.cr * PRICE.cache_read) / 1e6)}
+              <span className="l">
+                cache write · {fmtInt(T.cw)} tok @{" "}
+                {formatRate(stats.dominant.cw)}
               </span>
+              <span className="v">{fmtMoney(stats.costByCat.cw)}</span>
+            </div>
+            <div className="bill-line">
+              <span className="l">
+                cache read · {fmtInt(T.cr)} tok @{" "}
+                {formatRate(stats.dominant.cr)}
+              </span>
+              <span className="v">{fmtMoney(stats.costByCat.cr)}</span>
             </div>
           </div>
           <div className="bill-total">
@@ -1332,6 +1564,25 @@ function Report({ stats }: { stats: Stats }) {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="sec-head">
+        <h2>
+          the <em>takeaways.</em>
+        </h2>
+        <div className="note">
+          the three things this session can&apos;t hide.
+        </div>
+      </div>
+
+      <div className="grid-3 takeaways-grid">
+        {takeaways.map((t, i) => (
+          <div key={i} className={`takeaway ${t.kind}`}>
+            <div className="rank">no. 0{i + 1}</div>
+            <h3 className="tt-title">{t.title}</h3>
+            <p className="tt-detail">{t.detail}</p>
+          </div>
+        ))}
       </div>
     </>
   );
