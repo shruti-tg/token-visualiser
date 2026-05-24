@@ -78,6 +78,8 @@ interface Stats {
   dominantId: string | null;
   multiModel: boolean;
   costByCat: { in: number; out: number; cw: number; cr: number };
+  compactions: number[];
+  modelChanges: Array<{ idx: number; label: string }>;
   earliestTs: string | null;
   latestTs: string | null;
   totals: {
@@ -89,6 +91,37 @@ interface Stats {
     noCache: number;
   };
   savedPct: number;
+}
+
+// Heuristic: a /compact drops context >40% and writes a fresh cache.
+function detectCompactions(turns: Turn[]): number[] {
+  const events: number[] = [];
+  for (let i = 1; i < turns.length; i++) {
+    const prev = turns[i - 1];
+    const cur = turns[i];
+    if (prev.contextSize < 10000) continue;
+    const drop = (prev.contextSize - cur.contextSize) / prev.contextSize;
+    if (drop > 0.4 && cur.cWrite > 1500) events.push(cur.idx);
+  }
+  return events;
+}
+
+// Detect model switches that persist (filters out single-turn subagent detours).
+function detectModelChanges(
+  turns: Turn[],
+): Array<{ idx: number; label: string }> {
+  const events: Array<{ idx: number; label: string }> = [];
+  for (let i = 1; i < turns.length; i++) {
+    const prev = turns[i - 1];
+    const cur = turns[i];
+    if (!cur.model || !prev.model) continue;
+    if (cur.model === prev.model) continue;
+    // Require the new model to persist for the next turn too — drops subagent noise.
+    const next = turns[i + 1];
+    if (next && next.model && next.model !== cur.model) continue;
+    events.push({ idx: cur.idx, label: prettyModelName(cur.model) });
+  }
+  return events;
 }
 
 type TakeawayKind = "" | "coral" | "mint" | "pink" | "blue";
@@ -226,6 +259,8 @@ export default function Home() {
       dominantId,
       multiModel: modelIds.length > 1,
       costByCat,
+      compactions: detectCompactions(turns),
+      modelChanges: detectModelChanges(turns),
       earliestTs,
       latestTs,
       totals: tot,
@@ -562,6 +597,8 @@ export default function Home() {
 function createStackedBarsChart(
   data: Turn[],
   onBarHover?: (turn: Turn | null, x: number) => void,
+  compactions: number[] = [],
+  modelChanges: Array<{ idx: number; label: string }> = [],
 ) {
   const W = 880,
     H = 320;
@@ -691,12 +728,65 @@ function createStackedBarsChart(
     svg.appendChild(text);
   }
 
+  // Compaction markers
+  for (const compactIdx of compactions) {
+    const cx = padL + slot * (compactIdx - 1);
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", String(cx));
+    line.setAttribute("x2", String(cx));
+    line.setAttribute("y1", String(padT));
+    line.setAttribute("y2", String(H - padB));
+    line.setAttribute("stroke", colors.coral);
+    line.setAttribute("stroke-width", "2");
+    line.setAttribute("stroke-dasharray", "5 4");
+    line.setAttribute("opacity", "0.85");
+    svg.appendChild(line);
+
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("x", String(cx + 5));
+    label.setAttribute("y", String(padT + 12));
+    label.setAttribute("font-family", "JetBrains Mono, monospace");
+    label.setAttribute("font-size", "11");
+    label.setAttribute("font-weight", "700");
+    label.setAttribute("fill", colors.coral);
+    label.textContent = "✂ /compact";
+    svg.appendChild(label);
+  }
+
+  // Model change markers — label sits to the left so it survives near the right edge
+  for (const mc of modelChanges) {
+    const cx = padL + slot * (mc.idx - 1);
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", String(cx));
+    line.setAttribute("x2", String(cx));
+    line.setAttribute("y1", String(padT));
+    line.setAttribute("y2", String(H - padB));
+    line.setAttribute("stroke", colors.blue);
+    line.setAttribute("stroke-width", "2");
+    line.setAttribute("stroke-dasharray", "2 4");
+    line.setAttribute("opacity", "0.85");
+    svg.appendChild(line);
+
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("x", String(cx - 5));
+    label.setAttribute("y", String(padT + 12));
+    label.setAttribute("text-anchor", "end");
+    label.setAttribute("font-family", "JetBrains Mono, monospace");
+    label.setAttribute("font-size", "11");
+    label.setAttribute("font-weight", "700");
+    label.setAttribute("fill", colors.blue);
+    label.textContent = "→ " + mc.label;
+    svg.appendChild(label);
+  }
+
   return svg;
 }
 
 function createContextLineChart(
   data: Turn[],
   onPointHover?: (turn: Turn | null, x: number) => void,
+  compactions: number[] = [],
+  modelChanges: Array<{ idx: number; label: string }> = [],
 ) {
   const W = 540,
     H = 320;
@@ -717,7 +807,11 @@ function createContextLineChart(
 
   const css = getComputedStyle(document.body);
   const getColor = (name: string) => (css.getPropertyValue(name) || "").trim();
-  const colors = { ink: getColor("--ink"), coral: getColor("--coral") };
+  const colors = {
+    ink: getColor("--ink"),
+    coral: getColor("--coral"),
+    blue: getColor("--blue"),
+  };
 
   // Gridlines
   for (let i = 0; i <= 4; i++) {
@@ -801,6 +895,59 @@ function createContextLineChart(
 
     svg.appendChild(circle);
   });
+
+  // Compaction markers
+  for (const compactIdx of compactions) {
+    const cx =
+      padL + (n === 1 ? innerW / 2 : ((compactIdx - 1) / (n - 1)) * innerW);
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", String(cx));
+    line.setAttribute("x2", String(cx));
+    line.setAttribute("y1", String(padT));
+    line.setAttribute("y2", String(H - padB));
+    line.setAttribute("stroke", colors.coral);
+    line.setAttribute("stroke-width", "2");
+    line.setAttribute("stroke-dasharray", "5 4");
+    line.setAttribute("opacity", "0.85");
+    svg.appendChild(line);
+
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("x", String(cx + 5));
+    label.setAttribute("y", String(padT + 12));
+    label.setAttribute("font-family", "JetBrains Mono, monospace");
+    label.setAttribute("font-size", "11");
+    label.setAttribute("font-weight", "700");
+    label.setAttribute("fill", colors.coral);
+    label.textContent = "✂";
+    svg.appendChild(label);
+  }
+
+  // Model change markers — label sits to the left so it survives near the right edge
+  for (const mc of modelChanges) {
+    const cx =
+      padL + (n === 1 ? innerW / 2 : ((mc.idx - 1) / (n - 1)) * innerW);
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", String(cx));
+    line.setAttribute("x2", String(cx));
+    line.setAttribute("y1", String(padT));
+    line.setAttribute("y2", String(H - padB));
+    line.setAttribute("stroke", colors.blue);
+    line.setAttribute("stroke-width", "2");
+    line.setAttribute("stroke-dasharray", "2 4");
+    line.setAttribute("opacity", "0.85");
+    svg.appendChild(line);
+
+    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    label.setAttribute("x", String(cx - 5));
+    label.setAttribute("y", String(padT + 12));
+    label.setAttribute("text-anchor", "end");
+    label.setAttribute("font-family", "JetBrains Mono, monospace");
+    label.setAttribute("font-size", "11");
+    label.setAttribute("font-weight", "700");
+    label.setAttribute("fill", colors.blue);
+    label.textContent = "→ " + mc.label;
+    svg.appendChild(label);
+  }
 
   return svg;
 }
@@ -959,6 +1106,27 @@ function computeTakeaways(stats: Stats): Takeaway[] {
   const n = turns.length;
   const totalIn = T.in + T.cw + T.cr;
   const candidates: Takeaway[] = [];
+
+  // /compact detected — high priority, distinctive enough to be the headline
+  if (stats.compactions.length > 0) {
+    const N = stats.compactions.length;
+    const byIdx = new Map(turns.map((t) => [t.idx, t]));
+    const drops = stats.compactions.map((idx) => {
+      const cur = byIdx.get(idx);
+      const prev = byIdx.get(idx - 1);
+      return (prev?.contextSize || 0) - (cur?.contextSize || 0);
+    });
+    const totalShed = drops.reduce((a, d) => a + d, 0);
+    candidates.push({
+      score: 1.9 + N * 0.1,
+      kind: "pink",
+      title: N === 1 ? "the great purge" : "serial purger",
+      detail:
+        N === 1
+          ? `/compact at call #${stats.compactions[0]} — context shed ${formatCompact(drops[0])} tok.`
+          : `${N} /compacts (calls #${stats.compactions.join(", #")}). ${formatCompact(totalShed)} tok shed total.`,
+    });
+  }
 
   // Cache-read ratio: cold opening (bad) or cache hero (good)
   if (n >= 3 && totalIn > 0) {
@@ -1160,13 +1328,23 @@ function Report({ stats }: { stats: Stats }) {
     if (barChartRef.current) {
       barChartRef.current.innerHTML = "";
       barChartRef.current.appendChild(
-        createStackedBarsChart(stats.turns, handleBarHover),
+        createStackedBarsChart(
+          stats.turns,
+          handleBarHover,
+          stats.compactions,
+          stats.modelChanges,
+        ),
       );
     }
     if (lineChartRef.current) {
       lineChartRef.current.innerHTML = "";
       lineChartRef.current.appendChild(
-        createContextLineChart(stats.turns, handlePointHover),
+        createContextLineChart(
+          stats.turns,
+          handlePointHover,
+          stats.compactions,
+          stats.modelChanges,
+        ),
       );
     }
     if (costChartRef.current) {
