@@ -89,8 +89,8 @@ body {
   padding: 0;
   background: var(--cream);
   color: var(--ink);
-  font-family: "Bricolage Grotesque", "Helvetica Neue", Helvetica, Arial,
-    sans-serif;
+  font-family:
+    "Bricolage Grotesque", "Helvetica Neue", Helvetica, Arial, sans-serif;
   font-size: 17px;
   line-height: 1.4;
   font-weight: 500;
@@ -99,7 +99,10 @@ body {
 }
 
 body {
-  background-image: radial-gradient(rgba(20, 35, 63, 0.13) 1.1px, transparent 1.3px);
+  background-image: radial-gradient(
+    rgba(20, 35, 63, 0.13) 1.1px,
+    transparent 1.3px
+  );
   background-size: 22px 22px;
   background-position: 0 0;
 }
@@ -351,7 +354,9 @@ h1.hero {
   letter-spacing: -0.035em;
   margin: 0 0 8px;
   color: var(--ink);
-  font-variation-settings: "wdth" 95, "opsz" 96;
+  font-variation-settings:
+    "wdth" 95,
+    "opsz" 96;
 }
 
 h1.hero .line2 {
@@ -415,7 +420,9 @@ h1.hero em {
   display: flex;
   align-items: center;
   gap: 14px;
-  transition: transform 0.12s ease, background 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease;
 }
 
 .drop-card.drag {
@@ -655,7 +662,9 @@ h1.hero em {
   line-height: 0.92;
   letter-spacing: -0.04em;
   margin-top: 18px;
-  font-variation-settings: "wdth" 92, "opsz" 96;
+  font-variation-settings:
+    "wdth" 92,
+    "opsz" 96;
 }
 
 .stat .big .u {
@@ -695,7 +704,9 @@ h1.hero em {
   letter-spacing: -0.03em;
   margin: 0;
   color: var(--ink);
-  font-variation-settings: "wdth" 95, "opsz" 96;
+  font-variation-settings:
+    "wdth" 95,
+    "opsz" 96;
 }
 
 .sec-head h2 em {
@@ -1284,7 +1295,9 @@ footer.foot .right {
   font-size: 54px;
   margin-top: 14px;
   letter-spacing: -0.035em;
-  font-variation-settings: "wdth" 92, "opsz" 96;
+  font-variation-settings:
+    "wdth" 92,
+    "opsz" 96;
 }
 
 .tldr .stat .big em {
@@ -1697,8 +1710,10 @@ code,
 
 /* CARD CLICKABILITY (chapters are buttons) */
 .chap {
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  /* cursor: pointer; */
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .chap:hover {

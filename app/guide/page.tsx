@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface Datum {
   i: number;
@@ -429,7 +429,8 @@ const PALETTE_COLORS: Record<
 
 export default function Guide() {
   const [palette, setPalette] = useState("cream");
-  const [openRuleNum, setOpenRuleNum] = useState<number | null>(null);
+  // modal temporarily disabled — cards are display-only for now
+  // const [openRuleNum, setOpenRuleNum] = useState<number | null>(null);
 
   const colors = useMemo(
     () => PALETTE_COLORS[palette] ?? PALETTE_COLORS.workshop,
@@ -440,56 +441,51 @@ export default function Guide() {
     document.body.setAttribute("data-palette", palette);
   }, [palette]);
 
-  useEffect(() => {
-    if (openRuleNum === null) {
-      document.body.style.overflow = "";
-      return;
-    }
-    document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenRuleNum(null);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [openRuleNum]);
+  // useEffect(() => {
+  //   if (openRuleNum === null) {
+  //     document.body.style.overflow = "";
+  //     return;
+  //   }
+  //   document.body.style.overflow = "hidden";
+  //   const onKey = (e: KeyboardEvent) => {
+  //     if (e.key === "Escape") setOpenRuleNum(null);
+  //   };
+  //   document.addEventListener("keydown", onKey);
+  //   return () => {
+  //     document.removeEventListener("keydown", onKey);
+  //     document.body.style.overflow = "";
+  //   };
+  // }, [openRuleNum]);
 
-  const closeModal = useCallback(() => setOpenRuleNum(null), []);
-  const onCardKey = (
-    e: React.KeyboardEvent<HTMLElement>,
-    ruleNum: number,
-  ) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      setOpenRuleNum(ruleNum);
-    }
-  };
+  // const closeModal = useCallback(() => setOpenRuleNum(null), []);
+  // const onCardKey = (
+  //   e: React.KeyboardEvent<HTMLElement>,
+  //   ruleNum: number,
+  // ) => {
+  //   if (e.key === "Enter" || e.key === " ") {
+  //     e.preventDefault();
+  //     setOpenRuleNum(ruleNum);
+  //   }
+  // };
 
-  const chap = (ruleNum: number, extraClass: string, body: ReactNode) => (
-    <article
-      className={`chap ${extraClass}`}
-      role="button"
-      tabIndex={0}
-      onClick={() => setOpenRuleNum(ruleNum)}
-      onKeyDown={(e) => onCardKey(e, ruleNum)}
-    >
+  const chap = (_ruleNum: number, extraClass: string, body: ReactNode) => (
+    // modal trigger temporarily disabled — cards are display-only for now
+    <article className={`chap ${extraClass}`}>
       {body}
-      <span className="open-hint">
+      {/* <span className="open-hint">
         see the chart <span style={{ fontSize: 14 }}>→</span>
-      </span>
+      </span> */}
     </article>
   );
 
-  const rule = openRuleNum !== null ? RULES[openRuleNum] : null;
-  const badTotal = rule ? rule.bad.reduce((a, d) => a + totalOf(d), 0) : 0;
-  const goodTotal = rule ? rule.good.reduce((a, d) => a + totalOf(d), 0) : 0;
-  const sharedMax = rule
-    ? Math.max(...rule.bad.map(totalOf), ...rule.good.map(totalOf), 1)
-    : 1;
-  const savedTokens = badTotal - goodTotal;
-  const savedPct = badTotal > 0 ? Math.round((savedTokens / badTotal) * 100) : 0;
+  // const rule = openRuleNum !== null ? RULES[openRuleNum] : null;
+  // const badTotal = rule ? rule.bad.reduce((a, d) => a + totalOf(d), 0) : 0;
+  // const goodTotal = rule ? rule.good.reduce((a, d) => a + totalOf(d), 0) : 0;
+  // const sharedMax = rule
+  //   ? Math.max(...rule.bad.map(totalOf), ...rule.good.map(totalOf), 1)
+  //   : 1;
+  // const savedTokens = badTotal - goodTotal;
+  // const savedPct = badTotal > 0 ? Math.round((savedTokens / badTotal) * 100) : 0;
 
   return (
     <div style={{ backgroundColor: "var(--cream)" }}>
@@ -933,6 +929,7 @@ export default function Guide() {
         </footer>
       </div>
 
+      {/* modal temporarily disabled — restore alongside the cards' click handler
       {rule && (
         <div
           className="modal-backdrop show"
@@ -1038,6 +1035,7 @@ export default function Guide() {
           </div>
         </div>
       )}
+      */}
     </div>
   );
 }
