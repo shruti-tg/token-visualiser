@@ -15,6 +15,8 @@
   --pink: #c5739a;
   --pink-2: #d8a0bb;
   --gold: #d4a82e;
+  --bust: #d92b4b;
+  --bust-soft: #fde0e3;
   --line: #1c1814;
   --shadow: 4px 4px 0 var(--ink);
 }
@@ -32,6 +34,8 @@ body[data-palette="cream"] {
   --mint: #4dc093;
   --pink: #f6b4cc;
   --gold: #f3c93a;
+  --bust: #e02046;
+  --bust-soft: #ffe0e6;
 }
 
 body[data-palette="sage"] {
@@ -47,6 +51,8 @@ body[data-palette="sage"] {
   --mint: #4f7a3e;
   --pink: #b07274;
   --gold: #cd9737;
+  --bust: #b8324a;
+  --bust-soft: #f0d4d8;
 }
 
 body[data-palette="plum"] {
@@ -62,6 +68,8 @@ body[data-palette="plum"] {
   --mint: #6b9656;
   --pink: #e0a8c4;
   --gold: #cf9b2c;
+  --bust: #c01f4e;
+  --bust-soft: #f5dde6;
 }
 
 body[data-palette="slate"] {
@@ -77,6 +85,8 @@ body[data-palette="slate"] {
   --mint: #5a8d6b;
   --pink: #c97e92;
   --gold: #d8a13a;
+  --bust: #c4263f;
+  --bust-soft: #f4dadf;
 }
 
 * {
@@ -796,6 +806,110 @@ h1.hero em {
   border-radius: 6px;
   border: 2px solid var(--ink);
   display: inline-block;
+}
+
+.legend .box.bust-mark {
+  border-width: 2.5px;
+  border-color: var(--bust);
+  background: transparent;
+}
+
+/* CACHE BUST SECTION */
+.bust-card {
+  border-color: var(--bust);
+}
+
+.bust-card .table-head {
+  border-bottom-color: var(--bust);
+  background: var(--bust-soft);
+}
+
+.bust-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--bust);
+  color: var(--paper);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+
+.bust-tag.bust-compaction {
+  background: var(--coral);
+}
+
+.bust-tag.bust-model-switch {
+  background: var(--blue);
+  color: var(--paper);
+}
+
+.bust-tag.bust-partial-mid,
+.bust-tag.bust-dynamic-prefix {
+  background: var(--bust-soft);
+  color: var(--bust);
+  border: 1.5px solid var(--bust);
+  padding: 1.5px 9px;
+}
+
+.bust-tag.bust-tool-block-change {
+  background: var(--gold);
+  color: var(--ink);
+}
+
+.bust-tag.bust-version-bump,
+.bust-tag.bust-cwd-change,
+.bust-tag.bust-branch-switch {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.bust-conf {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+.bust-conf.conf-high {
+  background: var(--mint);
+  color: var(--ink);
+}
+
+.bust-conf.conf-medium {
+  background: var(--gold);
+  color: var(--ink);
+}
+
+.bust-conf.conf-low {
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed var(--muted);
+  padding: 1px 6px;
+}
+
+.bust-ledger td.bust-loss {
+  font-weight: 700;
+  color: var(--bust);
+}
+
+.bust-ledger td.bust-detail {
+  font-family: "Instrument Serif", serif;
+  font-style: italic;
+  color: var(--ink-2);
+  font-size: 13px;
+  max-width: 320px;
+  white-space: normal;
+  line-height: 1.35;
 }
 
 /* TOOL CHIPS */

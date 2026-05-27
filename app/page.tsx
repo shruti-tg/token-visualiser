@@ -69,7 +69,63 @@ interface Turn {
   model: string | null;
   actualCost: number;
   noCacheCost: number;
+  cwd: string | null;
+  gitBranch: string | null;
+  version: string | null;
+  parentUuid: string | null;
+  uuid: string | null;
+  isCompactSummary: boolean;
 }
+
+type BustCause =
+  | "model-switch"
+  | "ttl-expiry"
+  | "tool-block-change"
+  | "cwd-change"
+  | "branch-switch"
+  | "version-bump"
+  | "compaction"
+  | "rewind"
+  | "partial-mid"
+  | "dynamic-prefix";
+
+interface CacheBust {
+  idx: number;
+  ts: string | null;
+  expectedPrefix: number;
+  actualPrefix: number;
+  tokensLost: number;
+  cause: BustCause;
+  detail: string;
+  severity: "total" | "major" | "minor";
+  confidence: "high" | "medium" | "low";
+  costLost: number;
+  elapsedSec: number | null;
+}
+
+const BUST_LABELS: Record<BustCause, string> = {
+  "model-switch": "model switched",
+  "ttl-expiry": "ttl expired",
+  "tool-block-change": "tools changed",
+  "cwd-change": "cwd changed",
+  "branch-switch": "branch changed",
+  "version-bump": "claude code updated",
+  compaction: "/compact ran",
+  rewind: "history rewound",
+  "partial-mid": "mid-history edit",
+  "dynamic-prefix": "dynamic prefix",
+};
+
+// Tools whose presence in the PREVIOUS turn implies a tool/skill block mutation
+// going into the next call — the most common Claude Code bust cause.
+const MUTATING_TOOLS = new Set([
+  "ToolSearch",
+  "tool_search",
+  "Skill",
+  "load_skill",
+  "mcp_connect",
+  "mcp__connect",
+]);
 
 interface Stats {
   turns: Turn[];
@@ -81,6 +137,8 @@ interface Stats {
   costByCat: { in: number; out: number; cw: number; cr: number };
   compactions: number[];
   modelChanges: Array<{ idx: number; label: string }>;
+  busts: CacheBust[];
+  bustTotals: { count: number; tokensLost: number; costLost: number };
   earliestTs: string | null;
   latestTs: string | null;
   totals: {
@@ -105,6 +163,138 @@ function detectCompactions(turns: Turn[]): number[] {
     if (drop > 0.4 && cur.cWrite > 1500) events.push(cur.idx);
   }
   return events;
+}
+
+// Detect cache busts and attribute a cause. A bust = surviving cache_read
+// dropped below 90% of the previous call's cached prefix.
+// Causes are checked in priority order (cheapest signals first).
+function detectCacheBusts(turns: Turn[], compactions: number[]): CacheBust[] {
+  const compactSet = new Set(compactions);
+  const busts: CacheBust[] = [];
+  for (let i = 1; i < turns.length; i++) {
+    const prev = turns[i - 1];
+    const cur = turns[i];
+    const expected = prev.cRead + prev.cWrite;
+    if (expected < 1000) continue;
+    const survival = cur.cRead;
+    // Spec: not a bust if survival >= 90% of expected.
+    if (survival >= expected * 0.9) continue;
+    const tokensLost = expected - survival;
+    const survivalRatio = survival / expected;
+    const lossRatio = tokensLost / expected;
+
+    const elapsedSec =
+      prev.ts && cur.ts
+        ? Math.round(
+            (new Date(cur.ts).getTime() - new Date(prev.ts).getTime()) / 1000,
+          )
+        : null;
+
+    let cause: BustCause;
+    let detail: string;
+    let confidence: CacheBust["confidence"];
+
+    // 1. Model switch — single field compare, always full bust
+    if (cur.model && prev.model && cur.model !== prev.model) {
+      cause = "model-switch";
+      detail = `${prettyModelName(prev.model)} → ${prettyModelName(cur.model)}. cache is per-model.`;
+      confidence = "high";
+    }
+    // 2. TTL expiry — gap past 5-min default (or 1-hr extended) with no survival
+    else if (elapsedSec !== null && elapsedSec >= 300 && survival === 0) {
+      const mins = Math.round(elapsedSec / 60);
+      cause = "ttl-expiry";
+      detail =
+        elapsedSec >= 3600
+          ? `${mins} min gap — past both the 5-min and 1-hr TTL.`
+          : `${mins} min gap — past the 5-min default TTL.`;
+      confidence = "high";
+    }
+    // 3. Tool/skill block change — prev turn called a mutating tool
+    else if (prev.tools.some((t) => MUTATING_TOOLS.has(t))) {
+      const mutators = Array.from(
+        new Set(prev.tools.filter((t) => MUTATING_TOOLS.has(t))),
+      );
+      cause = "tool-block-change";
+      detail = `prev turn called ${mutators.join(", ")} — that mutates the tool/skill block right after the system prompt.`;
+      // High confidence if survival is small (consistent with shape).
+      confidence = survival < 20000 ? "high" : "medium";
+    }
+    // 4a. cwd change
+    else if (cur.cwd && prev.cwd && cur.cwd !== prev.cwd) {
+      cause = "cwd-change";
+      detail = `cwd: ${prev.cwd} → ${cur.cwd}. the injected env block sits in the system prompt.`;
+      confidence = "high";
+    }
+    // 4b. branch switch
+    else if (
+      cur.gitBranch &&
+      prev.gitBranch &&
+      cur.gitBranch !== prev.gitBranch
+    ) {
+      cause = "branch-switch";
+      detail = `${prev.gitBranch} → ${cur.gitBranch}. gitBranch is part of the system-prompt env.`;
+      confidence = "high";
+    }
+    // 4c. Claude Code version bump
+    else if (cur.version && prev.version && cur.version !== prev.version) {
+      cause = "version-bump";
+      detail = `claude code updated mid-session: ${prev.version} → ${cur.version}. the system prompt changed.`;
+      confidence = "high";
+    }
+    // 5. Compaction — explicit summary marker or matched our heuristic
+    else if (cur.isCompactSummary || compactSet.has(cur.idx)) {
+      cause = "compaction";
+      detail =
+        "conversation history was replaced with a summary. system prompt is intact but messages[] was rewritten.";
+      confidence = "high";
+    }
+    // 6. Rewind — parentUuid doesn't point at the previous turn
+    else if (cur.parentUuid && prev.uuid && cur.parentUuid !== prev.uuid) {
+      cause = "rewind";
+      detail =
+        "parentUuid skipped the previous turn — the conversation was edited or rewound to an earlier point.";
+      confidence = "medium";
+    }
+    // 7. Mid-history mutation — partial survival, not at the top
+    else if (survivalRatio >= 0.3 && survivalRatio < 0.9) {
+      cause = "partial-mid";
+      detail = `${Math.round(survivalRatio * 100)}% of the prefix survived — something inside the conversation history changed (re-serialized tool_result, edited message, or moved breakpoint).`;
+      confidence = "low";
+    }
+    // 8. Default bucket — survival=0 (or near it) with nothing else to blame
+    else {
+      cause = "dynamic-prefix";
+      detail =
+        survival === 0
+          ? "entire prefix rewritten with no model/ttl/branch/cwd/tool change to blame. suspect dynamic system-prompt content (injected timestamp, user info, feature flags)."
+          : `only ${formatCompact(survival)} tok survived. possibly a tool/skill mutation that wasn't logged — check what the prev turn touched.`;
+      confidence = "low";
+    }
+
+    const severity: CacheBust["severity"] =
+      lossRatio >= 0.95 ? "total" : lossRatio >= 0.5 ? "major" : "minor";
+
+    // Price the bust at the actual model on this turn — a model-switch bust
+    // onto an Opus turn should use Opus rates, not the dominant model's.
+    const p = modelPricing(cur.model);
+    const costLost = (tokensLost * (p.cw - p.cr)) / 1e6;
+
+    busts.push({
+      idx: cur.idx,
+      ts: cur.ts,
+      expectedPrefix: expected,
+      actualPrefix: survival,
+      tokensLost,
+      cause,
+      detail,
+      severity,
+      confidence,
+      costLost,
+      elapsedSec,
+    });
+  }
+  return busts;
 }
 
 // Detect model switches that persist (filters out single-turn subagent detours).
@@ -199,8 +389,7 @@ export default function Home() {
         (cWrite * p.cw) / 1e6 +
         (cRead * p.cr) / 1e6;
       const noCacheCost =
-        ((inTok + cWrite + cRead) * p.input) / 1e6 +
-        (outTok * p.output) / 1e6;
+        ((inTok + cWrite + cRead) * p.input) / 1e6 + (outTok * p.output) / 1e6;
 
       turns.push({
         idx: turns.length + 1,
@@ -214,6 +403,12 @@ export default function Home() {
         model: modelId,
         actualCost,
         noCacheCost,
+        cwd: typeof obj.cwd === "string" ? obj.cwd : null,
+        gitBranch: typeof obj.gitBranch === "string" ? obj.gitBranch : null,
+        version: typeof obj.version === "string" ? obj.version : null,
+        parentUuid: typeof obj.parentUuid === "string" ? obj.parentUuid : null,
+        uuid: typeof obj.uuid === "string" ? obj.uuid : null,
+        isCompactSummary: Boolean(obj.isCompactSummary || msg.isCompactSummary),
       });
     }
 
@@ -246,11 +441,20 @@ export default function Home() {
     const modelIds = Object.keys(modelCounts);
     const dominantId =
       modelIds.length > 0
-        ? modelIds.reduce((a, b) =>
-            modelCounts[b] > modelCounts[a] ? b : a,
-          )
+        ? modelIds.reduce((a, b) => (modelCounts[b] > modelCounts[a] ? b : a))
         : null;
     const dominant = modelPricing(dominantId);
+
+    const compactions = detectCompactions(turns);
+    const busts = detectCacheBusts(turns, compactions);
+    const bustTotals = busts.reduce(
+      (a, b) => ({
+        count: a.count + 1,
+        tokensLost: a.tokensLost + b.tokensLost,
+        costLost: a.costLost + b.costLost,
+      }),
+      { count: 0, tokensLost: 0, costLost: 0 },
+    );
 
     return {
       turns,
@@ -260,8 +464,10 @@ export default function Home() {
       dominantId,
       multiModel: modelIds.length > 1,
       costByCat,
-      compactions: detectCompactions(turns),
+      compactions,
       modelChanges: detectModelChanges(turns),
+      busts,
+      bustTotals,
       earliestTs,
       latestTs,
       totals: tot,
@@ -340,6 +546,7 @@ export default function Home() {
       "TodoWrite",
       "WebFetch",
     ];
+    type BustKind = "ttl" | "model" | "full";
     const profiles: Record<
       string,
       {
@@ -349,6 +556,7 @@ export default function Home() {
         cacheReadRatio: number;
         outBase: number;
         dups: number[];
+        busts: Record<number, BustKind>;
       }
     > = {
       warm: {
@@ -358,6 +566,7 @@ export default function Home() {
         cacheReadRatio: 0.86,
         outBase: 280,
         dups: [7, 14],
+        busts: { 12: "ttl" },
       },
       cold: {
         n: 38,
@@ -366,6 +575,7 @@ export default function Home() {
         cacheReadRatio: 0.55,
         outBase: 220,
         dups: [11],
+        busts: {},
       },
       long: {
         n: 70,
@@ -374,6 +584,7 @@ export default function Home() {
         cacheReadRatio: 0.91,
         outBase: 320,
         dups: [22, 44, 55],
+        busts: { 18: "ttl", 37: "model", 54: "full" },
       },
     };
 
@@ -381,19 +592,37 @@ export default function Home() {
     const lines: string[] = [];
     let ctx = p.ctxStart;
     let t = Date.now() - 1000 * 60 * (8 + p.n * 2);
+    let curModel = "claude-sonnet-4-6-20251001";
 
     for (let i = 0; i < p.n; i++) {
-      t += 8000 + Math.random() * 55000;
+      const bust = p.busts[i];
+      // TTL busts: simulate a long pause between turns.
+      const gapMs =
+        bust === "ttl"
+          ? 12 * 60 * 1000 + Math.random() * 8 * 60 * 1000
+          : 8000 + Math.random() * 55000;
+      t += gapMs;
+
+      if (bust === "model") {
+        curModel =
+          curModel === "claude-sonnet-4-6-20251001"
+            ? "claude-opus-4-7-20260101"
+            : "claude-sonnet-4-6-20251001";
+      }
+
       const heavy = i % p.heavyEvery === 2;
       const first = i === 0;
-      const cache_read = first
-        ? 0
-        : Math.round(ctx * (p.cacheReadRatio + (Math.random() - 0.5) * 0.06));
+      const cache_read =
+        first || bust
+          ? 0
+          : Math.round(ctx * (p.cacheReadRatio + (Math.random() - 0.5) * 0.06));
       const cache_write = first
         ? Math.round(ctx)
-        : heavy
-          ? Math.round(1200 + Math.random() * 5500)
-          : Math.round(80 + Math.random() * 900);
+        : bust
+          ? Math.round(ctx * 0.95)
+          : heavy
+            ? Math.round(1200 + Math.random() * 5500)
+            : Math.round(80 + Math.random() * 900);
       const input_tokens = Math.round(2 + Math.random() * 30);
       const output_tokens = Math.round(
         p.outBase + Math.random() * 520 + (heavy ? 280 : 0),
@@ -408,7 +637,7 @@ export default function Home() {
         message: {
           id: `msg_${kind}_${i}`,
           role: "assistant",
-          model: "claude-sonnet-4-6-20251001",
+          model: curModel,
           content: toolNames.map((n) => ({ type: "tool_use", name: n })),
           usage: {
             input_tokens,
@@ -422,7 +651,8 @@ export default function Home() {
 
       lines.push(JSON.stringify(entry));
       if (p.dups.includes(i)) lines.push(JSON.stringify(entry));
-      ctx += cache_write;
+      // Cache size after the call = whatever was cache-read + the new writes.
+      ctx = cache_read + cache_write;
     }
 
     return lines.join("\n");
@@ -605,6 +835,7 @@ function createStackedBarsChart(
   onBarHover?: (turn: Turn | null, x: number) => void,
   compactions: number[] = [],
   modelChanges: Array<{ idx: number; label: string }> = [],
+  busts: CacheBust[] = [],
 ) {
   const W = 880,
     H = 320;
@@ -635,6 +866,9 @@ function createStackedBarsChart(
     coral: getColor("--coral"),
     blue: getColor("--blue"),
     mint: getColor("--mint"),
+    paper: getColor("--paper") || "#faf3e0",
+    muted: getColor("--muted") || "#8a8275",
+    bust: getColor("--bust") || "#d92b4b",
   };
 
   // Gridlines
@@ -672,10 +906,51 @@ function createStackedBarsChart(
     { key: "outTok", color: colors.mint },
   ];
 
+  // Index busts by turn idx so the bar loop can outline its bar.
+  const bustByIdx = new Map(busts.map((b) => [b.idx, b]));
+  // Remember each bar's top y so we can anchor callouts afterwards.
+  const barTops = new Map<number, { cx: number; topY: number }>();
+
+  // Helper: split text into lines that fit within maxChars, return tspan elements.
+  const NS = "http://www.w3.org/2000/svg";
+  function appendWrappedText(
+    parent: SVGElement,
+    text: string,
+    x: number,
+    startY: number,
+    lineH: number,
+    maxChars: number,
+    attrs: Record<string, string>,
+  ): number {
+    const words = text.split(" ");
+    const lines: string[] = [];
+    let cur = "";
+    for (const w of words) {
+      const next = cur ? cur + " " + w : w;
+      if (next.length > maxChars && cur) {
+        lines.push(cur);
+        cur = w;
+      } else {
+        cur = next;
+      }
+    }
+    if (cur) lines.push(cur);
+    lines.forEach((line, li) => {
+      const span = document.createElementNS(NS, "tspan");
+      span.setAttribute("x", String(x));
+      span.setAttribute("y", String(startY + li * lineH));
+      for (const [k, v] of Object.entries(attrs)) span.setAttribute(k, v);
+      span.textContent = line;
+      parent.appendChild(span);
+    });
+    return startY + (lines.length - 1) * lineH;
+  }
+
   data.forEach((d, i) => {
     const cx = padL + slot * (i + 0.5);
     const x = cx - barW / 2;
-    let cursor = H - padB;
+    const baseY = H - padB;
+    let cursor = baseY;
 
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
     group.setAttribute("data-turn-idx", String(i));
@@ -704,6 +979,31 @@ function createStackedBarsChart(
       path.setAttribute("stroke-linejoin", "round");
       group.appendChild(path);
     });
+
+    const topY = cursor;
+    barTops.set(d.idx, { cx, topY });
+
+    // Cherry-red dashed outline around bust bars
+    if (bustByIdx.has(d.idx)) {
+      const totH = baseY - topY;
+      if (totH > 0) {
+        const ring = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "rect",
+        );
+        ring.setAttribute("x", String(x - 3));
+        ring.setAttribute("y", String(topY - 3));
+        ring.setAttribute("width", String(barW + 6));
+        ring.setAttribute("height", String(totH + 6));
+        ring.setAttribute("rx", "9");
+        ring.setAttribute("ry", "9");
+        ring.setAttribute("fill", "none");
+        ring.setAttribute("stroke", colors.bust);
+        ring.setAttribute("stroke-width", "2.5");
+        ring.setAttribute("stroke-dasharray", "5 3");
+        group.appendChild(ring);
+      }
+    }
 
     if (onBarHover) {
       group.addEventListener("mouseenter", () => {
@@ -734,21 +1034,181 @@ function createStackedBarsChart(
     svg.appendChild(text);
   }
 
-  // Compaction markers
-  for (const compactIdx of compactions) {
-    const cx = padL + slot * (compactIdx - 1);
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", String(cx));
-    line.setAttribute("x2", String(cx));
-    line.setAttribute("y1", String(padT));
-    line.setAttribute("y2", String(H - padB));
-    line.setAttribute("stroke", colors.coral);
-    line.setAttribute("stroke-width", "2");
-    line.setAttribute("stroke-dasharray", "5 4");
-    line.setAttribute("opacity", "0.85");
-    svg.appendChild(line);
+  // One hover-only callout per bust
+  for (const b of busts) {
+    const anchor = barTops.get(b.idx);
+    if (!anchor) continue;
+    const { cx: bx, topY: by } = anchor;
+    const fw = 256;
+    const DETAIL_LINE_H = 17;
+    const DETAIL_MAX_CHARS = 32;
+    // Pre-count wrapped lines to size the card before we draw it.
+    const detailWords = b.detail.split(" ");
+    let detailLines = 1;
+    let curLine = "";
+    for (const w of detailWords) {
+      const next = curLine ? curLine + " " + w : w;
+      if (next.length > DETAIL_MAX_CHARS && curLine) {
+        detailLines++;
+        curLine = w;
+      } else {
+        curLine = next;
+      }
+    }
+    // tag+pad + headline + cause + gap + detail lines + bottom
+    const fh = 30 + 22 + 18 + detailLines * DETAIL_LINE_H + 10;
 
-    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    const placeLeft = bx + 110 + fw > W - padR;
+    const fx = placeLeft ? bx - 110 - fw : bx + 88;
+    const fy = Math.max(padT + 2, by - fh / 2);
+
+    const ann = document.createElementNS(NS, "g");
+    ann.style.display = "none"; // hover-only
+    ann.style.pointerEvents = "none";
+
+    // Arrow with control points anchored near the bar — clean swoop regardless of card position
+    const arrowStartX = placeLeft ? fx + fw - 6 : fx + 6;
+    const arrowEndX = bx + (placeLeft ? -4 : 4);
+    const arrow = document.createElementNS(NS, "path");
+    arrow.setAttribute(
+      "d",
+      placeLeft
+        ? `M ${arrowStartX} ${fy + fh / 2} C ${bx - 60} ${by - 16}, ${bx - 24} ${by - 4}, ${arrowEndX} ${by + 4}`
+        : `M ${arrowStartX} ${fy + fh / 2} C ${bx + 60} ${by - 16}, ${bx + 24} ${by - 4}, ${arrowEndX} ${by + 4}`,
+    );
+    arrow.setAttribute("stroke", colors.ink);
+    arrow.setAttribute("stroke-width", "2");
+    arrow.setAttribute("fill", "none");
+    arrow.setAttribute("stroke-linecap", "round");
+    ann.appendChild(arrow);
+
+    const ahx = arrowEndX;
+    const ahy = by + 4;
+    const arrowhead = document.createElementNS(NS, "path");
+    arrowhead.setAttribute(
+      "d",
+      placeLeft
+        ? `M ${ahx} ${ahy} l -10 5 l 3 -11`
+        : `M ${ahx} ${ahy} l 10 5 l -3 -11`,
+    );
+    arrowhead.setAttribute("stroke", colors.ink);
+    arrowhead.setAttribute("stroke-width", "2");
+    arrowhead.setAttribute("fill", "none");
+    arrowhead.setAttribute("stroke-linecap", "round");
+    arrowhead.setAttribute("stroke-linejoin", "round");
+    ann.appendChild(arrowhead);
+
+    // Card
+    const card = document.createElementNS(NS, "g");
+    card.setAttribute("transform", `translate(${fx} ${fy})`);
+
+    const cardRect = document.createElementNS(NS, "rect");
+    cardRect.setAttribute("x", "0");
+    cardRect.setAttribute("y", "0");
+    cardRect.setAttribute("width", String(fw));
+    cardRect.setAttribute("height", String(fh));
+    cardRect.setAttribute("rx", "14");
+    cardRect.setAttribute("ry", "14");
+    cardRect.setAttribute("fill", colors.paper);
+    cardRect.setAttribute("stroke", colors.ink);
+    cardRect.setAttribute("stroke-width", "2.5");
+    card.appendChild(cardRect);
+
+    // "CACHE BUST" corner tag
+    const tagRect = document.createElementNS(NS, "rect");
+    tagRect.setAttribute("x", "-2");
+    tagRect.setAttribute("y", "-2");
+    tagRect.setAttribute("width", "104");
+    tagRect.setAttribute("height", "22");
+    tagRect.setAttribute("rx", "11");
+    tagRect.setAttribute("ry", "11");
+    tagRect.setAttribute("fill", colors.bust);
+    tagRect.setAttribute("stroke", colors.ink);
+    tagRect.setAttribute("stroke-width", "2");
+    card.appendChild(tagRect);
+
+    const tagText = document.createElementNS(NS, "text");
+    tagText.setAttribute("x", "49");
+    tagText.setAttribute("y", "13");
+    tagText.setAttribute("text-anchor", "middle");
+    tagText.setAttribute("font-family", "JetBrains Mono, monospace");
+    tagText.setAttribute("font-size", "11");
+    tagText.setAttribute("font-weight", "700");
+    tagText.setAttribute("fill", colors.paper);
+    tagText.setAttribute("letter-spacing", ".14em");
+    tagText.textContent = "CACHE BUST";
+    card.appendChild(tagText);
+
+    // Headline: "call #N · Nk lost"
+    const headline = document.createElementNS(NS, "text");
+    headline.setAttribute("x", "14");
+    headline.setAttribute("y", "38");
+    headline.setAttribute("font-family", "Bricolage Grotesque, sans-serif");
+    headline.setAttribute("font-weight", "800");
+    headline.setAttribute("font-size", "17");
+    headline.setAttribute("fill", colors.ink);
+    headline.textContent = `call #${b.idx} · ${formatCompact(b.tokensLost)} lost`;
+    card.appendChild(headline);
+
+    // Cause label
+    const causeEl = document.createElementNS(NS, "text");
+    causeEl.setAttribute("x", "14");
+    causeEl.setAttribute("y", "54");
+    causeEl.setAttribute("font-family", "JetBrains Mono, monospace");
+    causeEl.setAttribute("font-size", "10");
+    causeEl.setAttribute("font-weight", "700");
+    causeEl.setAttribute("letter-spacing", ".1em");
+    causeEl.setAttribute("fill", colors.bust);
+    causeEl.textContent =
+      BUST_LABELS[b.cause].toUpperCase() + " · " + b.confidence.toUpperCase();
+    card.appendChild(causeEl);
+
+    // Detail: word-wrapped italic
+    const reasonEl = document.createElementNS(NS, "text");
+    reasonEl.setAttribute("font-family", "Instrument Serif, serif");
+    reasonEl.setAttribute("font-style", "italic");
+    reasonEl.setAttribute("font-size", "13.5");
+    reasonEl.setAttribute("fill", colors.muted);
+    appendWrappedText(
+      reasonEl,
+      b.detail,
+      14,
+      70,
+      DETAIL_LINE_H,
+      DETAIL_MAX_CHARS,
+      {},
+    );
+    card.appendChild(reasonEl);
+
+    ann.appendChild(card);
+    svg.appendChild(ann);
+
+    // Wire hover: bar group has data-turn-idx="i" where i = b.idx - 1.
+    const bar = svg.querySelector(
+      `[data-turn-idx="${b.idx - 1}"]`,
+    ) as SVGElement | null;
+    if (bar) {
+      bar.addEventListener("mouseenter", () => {
+        ann.style.display = "";
+        // Bring this callout to the top so it doesn't get hidden behind others.
+        svg.appendChild(ann);
+      });
+      bar.addEventListener("mouseleave", () => {
+        ann.style.display = "none";
+      });
+    }
+  }
+
+  // Quiet inline tags for compactions / model changes that were NOT classified
+  // as cache busts (rare). The bust system covers the loud cases.
+  const bustIdxSet = new Set(busts.map((b) => b.idx));
+  for (const compactIdx of compactions) {
+    if (bustIdxSet.has(compactIdx)) continue;
+    const cx = padL + slot * (compactIdx - 1);
+    const label = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "text",
+    );
     label.setAttribute("x", String(cx + 5));
     label.setAttribute("y", String(padT + 12));
     label.setAttribute("font-family", "JetBrains Mono, monospace");
@@ -758,22 +1218,13 @@ function createStackedBarsChart(
     label.textContent = "✂ /compact";
     svg.appendChild(label);
   }
-
-  // Model change markers — label sits to the left so it survives near the right edge
   for (const mc of modelChanges) {
+    if (bustIdxSet.has(mc.idx)) continue;
     const cx = padL + slot * (mc.idx - 1);
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", String(cx));
-    line.setAttribute("x2", String(cx));
-    line.setAttribute("y1", String(padT));
-    line.setAttribute("y2", String(H - padB));
-    line.setAttribute("stroke", colors.blue);
-    line.setAttribute("stroke-width", "2");
-    line.setAttribute("stroke-dasharray", "2 4");
-    line.setAttribute("opacity", "0.85");
-    svg.appendChild(line);
-
-    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    const label = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "text",
+    );
     label.setAttribute("x", String(cx - 5));
     label.setAttribute("y", String(padT + 12));
     label.setAttribute("text-anchor", "end");
@@ -917,7 +1368,10 @@ function createContextLineChart(
     line.setAttribute("opacity", "0.85");
     svg.appendChild(line);
 
-    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    const label = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "text",
+    );
     label.setAttribute("x", String(cx + 5));
     label.setAttribute("y", String(padT + 12));
     label.setAttribute("font-family", "JetBrains Mono, monospace");
@@ -943,7 +1397,10 @@ function createContextLineChart(
     line.setAttribute("opacity", "0.85");
     svg.appendChild(line);
 
-    const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    const label = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "text",
+    );
     label.setAttribute("x", String(cx - 5));
     label.setAttribute("y", String(padT + 12));
     label.setAttribute("text-anchor", "end");
@@ -1113,6 +1570,21 @@ function computeTakeaways(stats: Stats): Takeaway[] {
   const totalIn = T.in + T.cw + T.cr;
   const candidates: Takeaway[] = [];
 
+  // Cache busts — most expensive bust drives the takeaway if it's big
+  if (stats.busts.length > 0 && stats.bustTotals.costLost > 0) {
+    const N = stats.bustTotals.count;
+    const top = [...stats.busts].sort((a, b) => b.tokensLost - a.tokensLost)[0];
+    candidates.push({
+      score: Math.min(1.4 + N * 0.15, 2.5),
+      kind: "coral",
+      title: N === 1 ? "leaky prefix" : "leaky cache",
+      detail:
+        N === 1
+          ? `call #${top.idx} ${BUST_LABELS[top.cause]} — ${formatCompact(top.tokensLost)} tok rewritten.`
+          : `${N} busts (worst: #${top.idx}, ${BUST_LABELS[top.cause]}). ${formatCompact(stats.bustTotals.tokensLost)} tok lost · ${formatMoneyShort(stats.bustTotals.costLost)} in write premium.`,
+    });
+  }
+
   // /compact detected — high priority, distinctive enough to be the headline
   if (stats.compactions.length > 0) {
     const N = stats.compactions.length;
@@ -1264,10 +1736,11 @@ function Report({ stats }: { stats: Stats }) {
   const lineChartRef = useRef<HTMLDivElement>(null);
   const costChartRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const [tooltipData, setTooltipData] = useState<{
-    type: "turn" | "context" | "cost";
-    data: any;
-  } | null>(null);
+  const [tooltipData, setTooltipData] = useState<
+    | { type: "turn" | "context"; data: Turn }
+    | { type: "cost"; data: { label: string; val: number } }
+    | null
+  >(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   const fmtInt = (n: number) => (n || 0).toLocaleString("en-US");
@@ -1339,6 +1812,7 @@ function Report({ stats }: { stats: Stats }) {
           handleBarHover,
           stats.compactions,
           stats.modelChanges,
+          stats.busts,
         ),
       );
     }
@@ -1359,7 +1833,7 @@ function Report({ stats }: { stats: Stats }) {
         createCostCompareChart(T, handleCostHover),
       );
     }
-  }, [stats]);
+  }, [stats, T]);
 
   const takeaways = computeTakeaways(stats);
 
@@ -1421,7 +1895,7 @@ function Report({ stats }: { stats: Stats }) {
           the caching <em>story.</em>
         </h2>
         <div className="note">
-          every call's diet, stacked. tall bars are expensive bars.
+          every call&apos;s diet, stacked. tall bars are expensive bars.
         </div>
       </div>
 
@@ -1457,6 +1931,17 @@ function Report({ stats }: { stats: Stats }) {
                 style={{ background: "var(--mint)" }}
               ></span>
               output
+            </span>
+            <span className="sw">
+              <span
+                className="box bust-mark"
+                style={{
+                  background: "transparent",
+                  borderStyle: "dashed",
+                  borderColor: "var(--bust)",
+                }}
+              ></span>
+              cache bust
             </span>
           </div>
         </div>
@@ -1672,6 +2157,81 @@ function Report({ stats }: { stats: Stats }) {
         </div>
       </div>
 
+      {stats.busts.length > 0 && (
+        <>
+          <div className="sec-head">
+            <h2>
+              the <em>busts.</em>
+            </h2>
+            <div className="note">
+              {stats.bustTotals.count} prefix invalidation
+              {stats.bustTotals.count === 1 ? "" : "s"} ·{" "}
+              {formatCompact(stats.bustTotals.tokensLost)} tokens lost ·{" "}
+              {fmtMoneyShort(stats.bustTotals.costLost)} in cache-write premium.
+            </div>
+          </div>
+
+          <div className="card table-card bust-card">
+            <div className="table-head">
+              <h3>each time the prefix changed</h3>
+            </div>
+            <div className="table-wrap">
+              <table className="ledger bust-ledger">
+                <thead>
+                  <tr>
+                    <th className="l">#</th>
+                    <th className="l">time</th>
+                    <th className="l">cause</th>
+                    <th>tokens lost</th>
+                    <th>of prefix</th>
+                    <th>gap</th>
+                    <th>extra cost</th>
+                    <th className="l">why</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.busts.map((b) => (
+                    <tr key={b.idx}>
+                      <td className="l idx">{b.idx}</td>
+                      <td className="l">
+                        {b.ts
+                          ? new Date(b.ts).toLocaleTimeString("en-US", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })
+                          : "—"}
+                      </td>
+                      <td className="l">
+                        <span className={`bust-tag bust-${b.cause}`}>
+                          {BUST_LABELS[b.cause]}
+                        </span>
+                        <span className={`bust-conf conf-${b.confidence}`}>
+                          {b.confidence}
+                        </span>
+                      </td>
+                      <td className="bust-loss">{fmtInt(b.tokensLost)}</td>
+                      <td>
+                        {Math.round((b.tokensLost / b.expectedPrefix) * 100)}%
+                      </td>
+                      <td>
+                        {b.elapsedSec === null
+                          ? "—"
+                          : b.elapsedSec >= 60
+                            ? `${Math.round(b.elapsedSec / 60)}m`
+                            : `${b.elapsedSec}s`}
+                      </td>
+                      <td className="cost">{fmtMoneyShort(b.costLost)}</td>
+                      <td className="l bust-detail">{b.detail}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
       <div className="sec-head">
         <h2>
           the <em>ledger.</em>
@@ -1703,6 +2263,7 @@ function Report({ stats }: { stats: Stats }) {
             <thead>
               <tr>
                 <th className="l">#</th>
+                <th className="l">date</th>
                 <th className="l">time</th>
                 <th>input</th>
                 <th>cache·w</th>
@@ -1717,6 +2278,15 @@ function Report({ stats }: { stats: Stats }) {
               {stats.turns.map((t) => (
                 <tr key={t.idx}>
                   <td className="l idx">{t.idx}</td>
+                  <td className="l">
+                    {t.ts
+                      ? new Date(t.ts).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : "—"}
+                  </td>
                   <td className="l">
                     {t.ts
                       ? new Date(t.ts).toLocaleTimeString("en-US", {
