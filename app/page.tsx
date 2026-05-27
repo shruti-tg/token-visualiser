@@ -1082,22 +1082,6 @@ function createStackedBarsChart(
     arrow.setAttribute("stroke-linecap", "round");
     ann.appendChild(arrow);
 
-    const ahx = arrowEndX;
-    const ahy = by + 4;
-    const arrowhead = document.createElementNS(NS, "path");
-    arrowhead.setAttribute(
-      "d",
-      placeLeft
-        ? `M ${ahx} ${ahy} l -10 5 l 3 -11`
-        : `M ${ahx} ${ahy} l 10 5 l -3 -11`,
-    );
-    arrowhead.setAttribute("stroke", colors.ink);
-    arrowhead.setAttribute("stroke-width", "2");
-    arrowhead.setAttribute("fill", "none");
-    arrowhead.setAttribute("stroke-linecap", "round");
-    arrowhead.setAttribute("stroke-linejoin", "round");
-    ann.appendChild(arrowhead);
-
     // Card
     const card = document.createElementNS(NS, "g");
     card.setAttribute("transform", `translate(${fx} ${fy})`);
@@ -1386,16 +1370,6 @@ function createContextLineChart(
   for (const mc of modelChanges) {
     const cx =
       padL + (n === 1 ? innerW / 2 : ((mc.idx - 1) / (n - 1)) * innerW);
-    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", String(cx));
-    line.setAttribute("x2", String(cx));
-    line.setAttribute("y1", String(padT));
-    line.setAttribute("y2", String(H - padB));
-    line.setAttribute("stroke", colors.blue);
-    line.setAttribute("stroke-width", "2");
-    line.setAttribute("stroke-dasharray", "2 4");
-    line.setAttribute("opacity", "0.85");
-    svg.appendChild(line);
 
     const label = document.createElementNS(
       "http://www.w3.org/2000/svg",
