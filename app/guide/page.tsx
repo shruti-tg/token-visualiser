@@ -165,9 +165,7 @@ const RULES: Record<number, Rule> = {
     goodTitle: "tests + logs in a subagent",
     bad: seq(10, (i) => N(22, 28000 + i * 8500, i === 3 ? 12000 : 600, 420)),
     good: seq(10, (i) =>
-      i === 3
-        ? N(22, 32000, 2400, 380)
-        : N(22, 30000 + i * 1200, 600, 420),
+      i === 3 ? N(22, 32000, 2400, 380) : N(22, 30000 + i * 1200, 600, 420),
     ),
     takeaway:
       "Verbose tool output stays in the subagent's context. Only the summary lands back in yours — the main thread keeps reading a small, flat baseline.",
@@ -420,7 +418,12 @@ const PALETTE_COLORS: Record<
   string,
   { ink: string; coral: string; blue: string; mint: string }
 > = {
-  workshop: { ink: "#1c1814", coral: "#e16b3a", blue: "#2a5d8a", mint: "#6f9656" },
+  workshop: {
+    ink: "#1c1814",
+    coral: "#e16b3a",
+    blue: "#2a5d8a",
+    mint: "#6f9656",
+  },
   cream: { ink: "#14233f", coral: "#ff6447", blue: "#2d5be0", mint: "#4dc093" },
   sage: { ink: "#1d2f25", coral: "#c25535", blue: "#2b5e7a", mint: "#4f7a3e" },
   plum: { ink: "#2a1834", coral: "#c64a7a", blue: "#4a4d8a", mint: "#6b9656" },
@@ -688,8 +691,8 @@ export default function Guide() {
               </div>
               <ul>
                 <li>
-                  It loads <b>every single session</b> — every line is a tax
-                  you pay forever.
+                  It loads <b>every single session</b> — every line is a tax you
+                  pay forever.
                 </li>
                 <li>
                   Move workflow-specific instructions (PR review, migrations,
@@ -801,8 +804,7 @@ export default function Guide() {
               </div>
               <ul>
                 <li>
-                  Disable unused servers — even when deferred they add
-                  overhead.
+                  Disable unused servers — even when deferred they add overhead.
                 </li>
                 <li>
                   Prefer CLI tools (<code>gh</code>, <code>aws</code>,{" "}
@@ -869,8 +871,8 @@ export default function Guide() {
                   <div className="plan">max plan</div>
                   <div className="val">1-hour TTL</div>
                   <div className="desc">
-                    much more forgiving. you can step away and pick up where
-                    you left off without bleeding tokens.
+                    much more forgiving. you can step away and pick up where you
+                    left off without bleeding tokens.
                   </div>
                 </div>
               </div>
@@ -893,8 +895,7 @@ export default function Guide() {
               <ul>
                 <li>
                   Exclude <code>node_modules</code>, build artifacts, generated
-                  files — anything Claude shouldn&apos;t read but might pull
-                  in.
+                  files — anything Claude shouldn&apos;t read but might pull in.
                 </li>
                 <li>
                   If you&apos;ve ever watched it grep a lockfile, you needed
@@ -921,10 +922,7 @@ export default function Guide() {
         </div>
 
         <footer className="foot">
-          <em>
-            typeset in bricolage grotesque &amp; instrument serif. companion to
-            the token ledger.
-          </em>
+          <em>No tokens were harmed in the making of this guide.</em>
           <span className="right">field guide · 01</span>
         </footer>
       </div>

@@ -670,6 +670,9 @@ export default function Home() {
       <div className="page">
         {/* Top bar: guide link + palette switcher */}
         <div className="top-bar">
+          <Link href="/token-chart" className="nav-link" title="how the token chart is built">
+            <span>how it&apos;s built</span> <span className="ar">→</span>
+          </Link>
           <Link href="/guide" className="nav-link" title="open the field guide">
             <span>the field guide</span> <span className="ar">→</span>
           </Link>
