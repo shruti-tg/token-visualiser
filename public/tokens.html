@@ -1956,10 +1956,10 @@
       <a href="#s4"
         ><span class="dot"></span><span class="rl">chaining</span></a
       >
-      <a href="#s5"><span class="dot"></span><span class="rl">gotchas</span></a>
-      <a href="#s6"
+      <a href="#s5"
         ><span class="dot"></span><span class="rl">the session</span></a
       >
+      <a href="#s6"><span class="dot"></span><span class="rl">gotchas</span></a>
     </nav>
 
     <div class="page">
@@ -2124,40 +2124,6 @@
         <div class="sec-head">
           <div class="snum">4</div>
           <div class="stxt">
-            <div class="kick">fine print</div>
-            <h2>Gotchas worth <em>remembering</em></h2>
-          </div>
-        </div>
-        <div class="card">
-          <ul class="gotchas">
-            <li>
-              <b>Attachments</b> (files, tool results) land in
-              <span class="mono">CACHE WRITE</span>directly, not
-              <span class="mono">INPUT</span> — they're the big spikes.
-            </li>
-            <li>
-              <b>Thinking blocks</b> are carried forward into later turns and
-              cached too, not just the output text.
-            </li>
-            <li>
-              One API response = several transcript lines sharing
-              <b>one <span class="mono">message.id</span></b> and one usage
-              record. Dedup by <span class="mono">message.id</span> before
-              summing, or you double-count.
-            </li>
-            <li>
-              A <b>new session</b> does <em>not</em> mean a cold cache — caching
-              is keyed on the content prefix, not the session.
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <!-- ===== SECTION 6 ===== -->
-      <section id="s6">
-        <div class="sec-head">
-          <div class="snum">5</div>
-          <div class="stxt">
             <div class="kick">walk it through</div>
             <h2>A real session, <em>step by step</em></h2>
           </div>
@@ -2208,6 +2174,40 @@
               <span class="sw"><span class="bx out"></span> output</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- ===== SECTION 6 ===== -->
+      <section id="s6">
+        <div class="sec-head">
+          <div class="snum">5</div>
+          <div class="stxt">
+            <div class="kick">fine print</div>
+            <h2>Gotchas worth <em>remembering</em></h2>
+          </div>
+        </div>
+        <div class="card">
+          <ul class="gotchas">
+            <li>
+              <b>Attachments</b> (files, tool results) land in
+              <span class="mono">CACHE WRITE</span>directly, not
+              <span class="mono">INPUT</span> — they're the big spikes.
+            </li>
+            <li>
+              <b>Thinking blocks</b> are carried forward into later turns and
+              cached too, not just the output text.
+            </li>
+            <li>
+              One API response = several transcript lines sharing
+              <b>one <span class="mono">message.id</span></b> and one usage
+              record. Dedup by <span class="mono">message.id</span> before
+              summing, or you double-count.
+            </li>
+            <li>
+              A <b>new session</b> does <em>not</em> mean a cold cache — caching
+              is keyed on the content prefix, not the session.
+            </li>
+          </ul>
         </div>
       </section>
 
