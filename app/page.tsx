@@ -1202,23 +1202,24 @@ function createStackedBarsChart(
     label.textContent = "✂ /compact";
     svg.appendChild(label);
   }
-  for (const mc of modelChanges) {
-    if (bustIdxSet.has(mc.idx)) continue;
-    const cx = padL + slot * (mc.idx - 1);
-    const label = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "text",
-    );
-    label.setAttribute("x", String(cx - 5));
-    label.setAttribute("y", String(padT + 12));
-    label.setAttribute("text-anchor", "end");
-    label.setAttribute("font-family", "JetBrains Mono, monospace");
-    label.setAttribute("font-size", "11");
-    label.setAttribute("font-weight", "700");
-    label.setAttribute("fill", colors.blue);
-    label.textContent = "→ " + mc.label;
-    svg.appendChild(label);
-  }
+  // model-switch labels temporarily hidden
+  // for (const mc of modelChanges) {
+  //   if (bustIdxSet.has(mc.idx)) continue;
+  //   const cx = padL + slot * (mc.idx - 1);
+  //   const label = document.createElementNS(
+  //     "http://www.w3.org/2000/svg",
+  //     "text",
+  //   );
+  //   label.setAttribute("x", String(cx - 5));
+  //   label.setAttribute("y", String(padT + 12));
+  //   label.setAttribute("text-anchor", "end");
+  //   label.setAttribute("font-family", "JetBrains Mono, monospace");
+  //   label.setAttribute("font-size", "11");
+  //   label.setAttribute("font-weight", "700");
+  //   label.setAttribute("fill", colors.blue);
+  //   label.textContent = "→ " + mc.label;
+  //   svg.appendChild(label);
+  // }
 
   return svg;
 }
@@ -1366,25 +1367,25 @@ function createContextLineChart(
     svg.appendChild(label);
   }
 
-  // Model change markers — label sits to the left so it survives near the right edge
-  for (const mc of modelChanges) {
-    const cx =
-      padL + (n === 1 ? innerW / 2 : ((mc.idx - 1) / (n - 1)) * innerW);
-
-    const label = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "text",
-    );
-    label.setAttribute("x", String(cx - 5));
-    label.setAttribute("y", String(padT + 12));
-    label.setAttribute("text-anchor", "end");
-    label.setAttribute("font-family", "JetBrains Mono, monospace");
-    label.setAttribute("font-size", "11");
-    label.setAttribute("font-weight", "700");
-    label.setAttribute("fill", colors.blue);
-    label.textContent = "→ " + mc.label;
-    svg.appendChild(label);
-  }
+  // Model change markers temporarily hidden
+  // for (const mc of modelChanges) {
+  //   const cx =
+  //     padL + (n === 1 ? innerW / 2 : ((mc.idx - 1) / (n - 1)) * innerW);
+  //
+  //   const label = document.createElementNS(
+  //     "http://www.w3.org/2000/svg",
+  //     "text",
+  //   );
+  //   label.setAttribute("x", String(cx - 5));
+  //   label.setAttribute("y", String(padT + 12));
+  //   label.setAttribute("text-anchor", "end");
+  //   label.setAttribute("font-family", "JetBrains Mono, monospace");
+  //   label.setAttribute("font-size", "11");
+  //   label.setAttribute("font-weight", "700");
+  //   label.setAttribute("fill", colors.blue);
+  //   label.textContent = "→ " + mc.label;
+  //   svg.appendChild(label);
+  // }
 
   return svg;
 }
