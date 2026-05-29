@@ -2055,11 +2055,11 @@
         <div class="card">
           <div class="lanes">
             <div class="lane l-read">
-              <div class="lname">read</div>
+              <div class="lname">Cache read</div>
               <div class="ldesc">all settled history — cheap</div>
             </div>
             <div class="lane l-write">
-              <div class="lname">write</div>
+              <div class="lname">Cache write</div>
               <div class="ldesc">the previous turn, cached now</div>
             </div>
             <div class="lane l-in">
@@ -2102,14 +2102,14 @@
             ></svg>
             <div class="chain-grid" id="chainGrid">
               <div class="turn-lab">Turn 1</div>
-              <div class="cbox read cold" data-cell="r1">read: cold</div>
-              <div class="cbox write" data-cell="w1">write: turn 1</div>
+              <div class="cbox read cold" data-cell="r1">Cache read: cold</div>
+              <div class="cbox write" data-cell="w1">Cache write: turn 1</div>
               <div class="turn-lab">Turn 2</div>
-              <div class="cbox read" data-cell="r2">read: turn 1</div>
-              <div class="cbox write" data-cell="w2">write: turn 2</div>
+              <div class="cbox read" data-cell="r2">Cache read: turn 1</div>
+              <div class="cbox write" data-cell="w2">Cache write: turn 2</div>
               <div class="turn-lab">Turn 3</div>
-              <div class="cbox read" data-cell="r3">read: turns 1–2</div>
-              <div class="cbox write" data-cell="w3">write: turn 3</div>
+              <div class="cbox read" data-cell="r3">Cache read: turns 1–2</div>
+              <div class="cbox write" data-cell="w3">Cache write: turn 3</div>
             </div>
           </div>
           <p class="chain-note" style="margin-top: 18px">
@@ -2427,7 +2427,7 @@
       const SESSION = [
         {
           sub: "cold start",
-          userHtml: "hi",
+          userHtml: "Hi!",
           think: "2s",
           bot: "Hey! What can I help you with today?",
           buckets: {
@@ -2436,7 +2436,7 @@
               txt: "system prompt + tool defs + skill list",
               meta: "cached now",
             },
-            inn: { txt: "“hi”" },
+            inn: { txt: "Hi!" },
             out: { txt: "thinking + the greeting" },
           },
           note: "First call: nothing to reuse, so the whole system prompt is written to cache. Your “hi” is the only fresh <b>INPUT</b>.",
@@ -2446,7 +2446,7 @@
           userHtml:
             '<span class="file-ref">@app/guide/page.tsx</span> summarise this',
           think: "11s",
-          bot: "React guide page: 10 rules for cutting token costs + a StackedBarsChart.",
+          bot: "React guide page: 10 rules for optimising your apps.",
           buckets: {
             read: {
               txt: "system prompt + tools + skills",
@@ -2456,14 +2456,14 @@
               txt: 'turn 1 + <span class="file">the page.tsx FILE</span>',
               meta: "cached now",
             },
-            inn: { txt: "“summarise this”" },
+            inn: { txt: "summarise this" },
             out: { txt: "thinking + the 10-rule summary" },
           },
           note: "The system prefix is now a cheap <b>READ</b>. The attached file lands fresh in <b>WRITE</b> — attachments are the big spikes.",
         },
         {
           sub: "a follow-up question",
-          userHtml: "what’s a good practice in this file",
+          userHtml: "What are the good practices in this file",
           think: "2s",
           bot: "Type-first design, data-driven UI, memoized colors, a11y baked in…",
           buckets: {
@@ -2471,8 +2471,11 @@
               txt: 'turn 1 + <span class="file">the file</span> + turn 2',
               meta: "cached",
             },
-            write: { txt: "turn 2’s reply (the summary)", meta: "cached now" },
-            inn: { txt: "“what’s a good practice?”" },
+            write: {
+              txt: "turn 2’s reply (the summary) + turn 2's input",
+              meta: "cached now",
+            },
+            inn: { txt: "What are the good practices in this file?" },
             out: { txt: "thinking + the practices list" },
           },
           note: "Everything so far — including the file — has folded into <b>READ</b>. The file never re-enters WRITE; it just rides along cheap.",
