@@ -324,13 +324,23 @@ interface Takeaway {
 }
 
 export default function Home() {
-  const [palette, setPalette] = useState("cream");
+  const [palette, setPalette] = useState(() => {
+    if (typeof window === "undefined") return "cream";
+    try {
+      return localStorage.getItem("tokenLedgerPalette") || "cream";
+    } catch {
+      return "cream";
+    }
+  });
   const [stats, setStats] = useState<Stats | null>(null);
   const [sourceLabel, setSourceLabel] = useState("none loaded");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     document.body.setAttribute("data-palette", palette);
+    try {
+      localStorage.setItem("tokenLedgerPalette", palette);
+    } catch {}
   }, [palette]);
 
   const parseTranscript = (text: string): Stats => {
