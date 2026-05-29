@@ -895,7 +895,8 @@ export default function Guide() {
               <ul>
                 <li>
                   Exclude <code>node_modules</code>, build artifacts, generated
-                  files — anything Claude shouldn&apos;t read but might pull in.
+                  files — anything Claude shouldn&apos;t read but might pull in
+                  by adding it in <code>.claudeignore</code>.
                 </li>
                 <li>
                   If you&apos;ve ever watched it grep a lockfile, you needed
