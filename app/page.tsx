@@ -680,11 +680,15 @@ export default function Home() {
       <div className="page">
         {/* Top bar: guide link + palette switcher */}
         <div className="top-bar">
-          <Link href="/token-chart" className="nav-link" title="how the token chart is built">
+          <Link
+            href="/token-chart"
+            className="nav-link"
+            title="how the token chart is built"
+          >
             <span>how it&apos;s built</span> <span className="ar">→</span>
           </Link>
-          <Link href="/guide" className="nav-link" title="open the field guide">
-            <span>the field guide</span> <span className="ar">→</span>
+          <Link href="/guide" className="nav-link" title="open the saver guide">
+            <span>the saver guide</span> <span className="ar">→</span>
           </Link>
           <div className="palette-switcher">
             <span className="ps-label">palette</span>
@@ -703,7 +707,7 @@ export default function Home() {
         {/* Tags */}
         <div className="tags">
           <span className="pill coral">
-            <span className="star">★</span> token ledger
+            <span className="star">★</span> Token ledger
           </span>
           <span className="pill blue">v1.0</span>
           <span className="pill">Everything client side</span>
