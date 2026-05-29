@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "token ledger — where did the tokens go?",
-  description: "Visualize your Claude API token usage. Drop a session log and see where the tokens went.",
+  title: "Token ledger — where did the tokens go?",
+  description:
+    "Visualize your Claude code token usage. Drop a session log and see where the tokens went.",
 };
 
 export default function RootLayout({
