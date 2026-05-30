@@ -6,6 +6,8 @@
       how the token chart is built — reading a session, turn by turn
     </title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -2672,8 +2674,91 @@
           out: 611,
         },
       ];
+      /* per-call, per-segment labels for the hover tooltip */
+      const SEG_INFO = [
+        {
+          write: {
+            t: "CACHE WRITE",
+            sub: "system prompt + tools + skills — being cached now, on the very first call.",
+          },
+          inn: {
+            t: "INPUT",
+            sub: "your message — “Hi”.",
+          },
+          out: {
+            t: "OUTPUT",
+            sub: "the reply — “Hey! What can I help you with today?”.",
+          },
+        },
+        {
+          read: {
+            t: "CACHE READ",
+            sub: "call 1's payload (system prompt + tools + skills) — replayed at the cache-read discount.",
+          },
+          write: {
+            t: "CACHE WRITE",
+            sub: "call 1's input + reply + the file you attached — being cached now.",
+          },
+          inn: {
+            t: "INPUT",
+            sub: "your message — “summarise this”.",
+          },
+          out: {
+            t: "OUTPUT",
+            sub: "the reply — “React guide page: 10 rules for optimising your apps.”.",
+          },
+        },
+        {
+          read: {
+            t: "CACHE READ",
+            sub: "everything so far + call 1's input + output + the file — replayed cheap.",
+          },
+          write: {
+            t: "CACHE WRITE",
+            sub: "call 2's input + output — being cached now so it can be read cheap later.",
+          },
+          inn: {
+            t: "INPUT",
+            sub: "your message — “What are the good practices in this file?”.",
+          },
+          out: {
+            t: "OUTPUT",
+            sub: "thinking + the reply — “Type-first design, data-driven UI, memoized colors, a11y baked in…”.",
+          },
+        },
+      ];
       function fmt(n) {
         return n.toLocaleString("en-US");
+      }
+      function showSegTip(el) {
+        const i = +el.getAttribute("data-call");
+        const k = el.getAttribute("data-seg");
+        const info = SEG_INFO[i] && SEG_INFO[i][k];
+        if (!info) return;
+        const v = (PAYOFF[i] && PAYOFF[i][k]) || 0;
+        tooltip.innerHTML =
+          '<div class="ttl">' +
+          info.t +
+          "</div>" +
+          '<div class="tt-row"><span class="l">tokens</span><span class="v">' +
+          fmt(v) +
+          "</span></div>" +
+          '<div class="tt-sub">' +
+          info.sub +
+          "</div>";
+        tooltip.classList.add("show");
+      }
+      function bindChartTips(hostId) {
+        const host = document.getElementById(hostId);
+        if (!host) return;
+        host.querySelectorAll("[data-seg]").forEach((el) => {
+          el.style.cursor = "help";
+          el.addEventListener("mouseenter", () => showSegTip(el));
+          el.addEventListener("mousemove", moveTip);
+          el.addEventListener("mouseleave", () =>
+            tooltip.classList.remove("show"),
+          );
+        });
       }
       function drawPayoff() {
         const host = document.getElementById("chartHost");
@@ -2760,7 +2845,11 @@
             // rounded top only on the uppermost segment
             if (r > 0) {
               s +=
-                '<path d="M' +
+                '<path data-call="' +
+                i +
+                '" data-seg="' +
+                k +
+                '" d="M' +
                 x +
                 " " +
                 (y + h) +
@@ -2796,14 +2885,14 @@
                 C[k] +
                 ";stroke:" +
                 C.ink +
-                ';stroke-width:2"><title>' +
-                k.replace("inn", "input") +
-                ": " +
-                fmt(v) +
-                "</title></path>";
+                ';stroke-width:2"/>';
             } else {
               s +=
-                '<rect x="' +
+                '<rect data-call="' +
+                i +
+                '" data-seg="' +
+                k +
+                '" x="' +
                 x +
                 '" y="' +
                 y +
@@ -2815,11 +2904,7 @@
                 C[k] +
                 ";stroke:" +
                 C.ink +
-                ';stroke-width:2"><title>' +
-                k.replace("inn", "input") +
-                ": " +
-                fmt(v) +
-                "</title></rect>";
+                ';stroke-width:2"/>';
             }
             yc -= h;
           });
@@ -2851,6 +2936,7 @@
         });
         s += "</svg>";
         host.innerHTML = s;
+        bindChartTips("chartHost");
       }
 
       function drawMiniChart(step, outShown) {
@@ -2947,7 +3033,11 @@
             );
             const y = yc - hh;
             s +=
-              '<rect x="' +
+              '<rect data-call="' +
+              i +
+              '" data-seg="' +
+              k +
+              '" x="' +
               x +
               '" y="' +
               y +
@@ -2988,6 +3078,7 @@
         });
         s += "</svg>";
         host.innerHTML = s;
+        bindChartTips("miniChart");
       }
       drawPayoff();
 
