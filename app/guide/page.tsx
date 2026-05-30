@@ -515,7 +515,7 @@ export default function Guide() {
           <span className="pill coral">
             <span className="star">★</span> token saver
           </span>
-          <span className="pill blue">field guide · v1</span>
+          <span className="pill blue">saver guide · v1</span>
           <span className="pill">10 rules · 4 min read</span>
         </div>
 
@@ -924,7 +924,7 @@ export default function Guide() {
 
         <footer className="foot">
           <em>No tokens were harmed in the making of this guide.</em>
-          <span className="right">field guide · 01</span>
+          <span className="right">saver guide · 01</span>
         </footer>
       </div>
 
