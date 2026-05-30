@@ -2053,29 +2053,53 @@
           </div>
         </div>
         <div class="card">
+          <p class="lead-txt" style="margin-bottom: 18px">
+            Resending the whole transcript every call would be brutal at full
+            price — so providers let you mark the stable prefix as
+            <b>cacheable</b>. The first time the provider sees a chunk, they
+            store it (a small one-time surcharge: a
+            <span class="mono">CACHE WRITE</span>). Every later call that
+            resends the same prefix gets billed at a fraction of the normal rate
+            (a <span class="mono">CACHE READ</span>). The full transcript still
+            gets shipped every time — it's just billed at different rates
+            depending on whether the provider has already seen it. So every call
+            splits into <b>four token buckets</b>:
+          </p>
           <div class="lanes">
             <div class="lane l-read">
               <div class="lname">Cache read</div>
-              <div class="ldesc">all settled history — cheap</div>
+              <div class="ldesc">
+                settled history the provider already has on file — cheapest lane
+              </div>
             </div>
             <div class="lane l-write">
               <div class="lname">Cache write</div>
-              <div class="ldesc">the previous turn, cached now</div>
+              <div class="ldesc">
+                material being stored for the first time — usually the previous
+                turn, now stable
+              </div>
             </div>
             <div class="lane l-in">
               <div class="lname">in</div>
-              <div class="ldesc">your new message</div>
+              <div class="ldesc">
+                genuinely new tokens this call — your latest message, full input
+                price
+              </div>
             </div>
             <div class="lane-arrow">→</div>
             <div class="lane l-out">
               <div class="lname">output</div>
-              <div class="ldesc">thinking + text reply</div>
+              <div class="ldesc">
+                thinking + reply — the most expensive lane per token
+              </div>
             </div>
           </div>
           <p class="tip">
-            Widths ≈ token volume. A rolling cache breakpoint keeps
-            <b>INPUT</b> tiny — most of every resend rides in the cheap
-            <span class="mono">READ</span> lane.
+            Widths ≈ token volume. The cache breakpoint slides forward each
+            turn, promoting yesterday's <span class="mono">WRITE</span> into
+            today's <span class="mono">READ</span> — so most of every resend
+            rides in the cheap <span class="mono">READ</span> lane while only
+            your new message pays full input price.
             <b>Stack these four on top of each other and you have one bar</b> in
             the chart.
           </p>
