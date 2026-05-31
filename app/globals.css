@@ -22,9 +22,9 @@
 }
 
 body[data-palette="cream"] {
-  --cream: #fde6cf;
-  --cream-2: #f9dcbb;
-  --paper: #fff7ec;
+  --cream: #fff3e3;
+  --cream-2: #fde6cf;
+  --paper: #fffaf2;
   --ink: #14233f;
   --ink-2: #3b4a66;
   --muted: #7a7460;

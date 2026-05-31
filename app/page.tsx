@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { usePalette, writePalette } from "./palette";
 
 // Anthropic list pricing ($/M tokens). Cache write = 1.25× input, cache read = 0.1× input.
 interface ModelPricing {
@@ -324,23 +325,13 @@ interface Takeaway {
 }
 
 export default function Home() {
-  const [palette, setPalette] = useState(() => {
-    if (typeof window === "undefined") return "cream";
-    try {
-      return localStorage.getItem("tokenLedgerPalette") || "cream";
-    } catch {
-      return "cream";
-    }
-  });
+  const palette = usePalette();
   const [stats, setStats] = useState<Stats | null>(null);
   const [sourceLabel, setSourceLabel] = useState("none loaded");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     document.body.setAttribute("data-palette", palette);
-    try {
-      localStorage.setItem("tokenLedgerPalette", palette);
-    } catch {}
   }, [palette]);
 
   const parseTranscript = (text: string): Stats => {
@@ -697,7 +688,7 @@ export default function Home() {
                 key={p}
                 className={`ps-swatch ${palette === p ? "active" : ""}`}
                 data-pal={p}
-                onClick={() => setPalette(p)}
+                onClick={() => writePalette(p)}
                 aria-label={`${p} palette`}
               />
             ))}
