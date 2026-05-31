@@ -108,15 +108,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-body {
-  background-image: radial-gradient(
-    rgba(20, 35, 63, 0.13) 1.1px,
-    transparent 1.3px
-  );
-  background-size: 22px 22px;
-  background-position: 0 0;
-}
-
 .page {
   max-width: 1280px;
   margin: 0 auto;

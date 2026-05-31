@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import SiteNav from "../SiteNav";
+import { usePalette, writePalette } from "../palette";
 
 interface Datum {
   i: number;
@@ -432,7 +433,7 @@ const PALETTE_COLORS: Record<
 };
 
 export default function Guide() {
-  const [palette, setPalette] = useState("cream");
+  const palette = usePalette();
   // modal temporarily disabled — cards are display-only for now
   // const [openRuleNum, setOpenRuleNum] = useState<number | null>(null);
 
@@ -494,7 +495,7 @@ export default function Guide() {
   return (
     <div style={{ backgroundColor: "var(--cream)" }}>
       <div className="page">
-        <SiteNav active="guide" palette={palette} onPaletteChange={setPalette} />
+        <SiteNav active="guide" palette={palette} onPaletteChange={writePalette} />
 
         <div className="tags">
           <span className="pill coral">
