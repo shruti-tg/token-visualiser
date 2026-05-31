@@ -2532,12 +2532,30 @@ body[data-palette="cream"] .compare-pane.good {
     margin-bottom: 24px;
   }
 
-  .nav-crumb {
-    display: none;
+  .nav-left {
+    gap: 8px;
+    flex: 1;
+    overflow: hidden;
   }
 
   .nav-brand {
     font-size: 16px;
+  }
+
+  .nav-ver {
+    display: none;
+  }
+
+  .nav-crumb {
+    font-size: 14px;
+  }
+
+  .nav-crumb .sep {
+    margin: 0 5px;
+  }
+
+  .nav-crumb b {
+    font-size: 13px;
   }
 
   .nav-toggle {
