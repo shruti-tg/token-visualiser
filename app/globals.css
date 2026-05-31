@@ -200,43 +200,268 @@ body {
   line-height: 1.35;
 }
 
-/* TOP BAR (palette switcher + nav link) */
-.top-bar {
-  position: fixed;
-  top: 18px;
-  right: 18px;
-  z-index: 50;
+/* COLLAPSIBLE SITE NAV */
+.site-nav {
+  position: sticky;
+  top: 14px;
+  z-index: 120;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 14px;
+  background: var(--paper);
+  border: 2.5px solid var(--ink);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 9px 11px 9px 18px;
+  margin: 0 0 38px;
 }
 
-.nav-link {
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.nav-brand {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: var(--paper);
+  gap: 9px;
+  text-decoration: none;
+  color: var(--ink);
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.nav-brand .star {
+  color: var(--coral);
+  font-size: 15px;
+}
+
+.nav-ver {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   border: 2px solid var(--ink);
   border-radius: 999px;
-  padding: 8px 14px;
-  box-shadow: var(--shadow);
-  font-weight: 700;
-  font-size: 14px;
+  padding: 2px 8px;
   color: var(--ink);
-  text-decoration: none;
-  letter-spacing: -0.005em;
-  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.nav-crumb {
+  font-family: "Instrument Serif", serif;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-crumb .sep {
+  margin: 0 7px;
+  color: var(--muted);
+  font-style: normal;
+}
+
+.nav-crumb b {
+  font-style: normal;
+  font-weight: 800;
+  color: var(--ink);
+  font-family: "Bricolage Grotesque", sans-serif;
+  font-size: 15px;
+}
+
+.nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
   cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  background: var(--ink);
+  color: var(--paper);
+  border: 2.5px solid var(--ink);
+  border-radius: 11px;
+  padding: 9px 16px;
+  font-weight: 800;
   transition: transform 0.12s;
 }
 
-.nav-link:hover {
-  background: #fff;
+.nav-toggle:hover {
   transform: translate(-1px, -1px);
 }
 
-.nav-link .ar {
-  display: inline-block;
+.nav-toggle .tlabel {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.nav-burger {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  width: 18px;
+  height: 14px;
+}
+
+.nav-burger span {
+  display: block;
+  height: 2.5px;
+  background: var(--paper);
+  border-radius: 2px;
+  transition:
+    transform 0.25s ease,
+    opacity 0.18s;
+}
+
+.site-nav.open .nav-burger span:nth-child(1) {
+  transform: translateY(5.5px) rotate(45deg);
+}
+
+.site-nav.open .nav-burger span:nth-child(2) {
+  opacity: 0;
+}
+
+.site-nav.open .nav-burger span:nth-child(3) {
+  transform: translateY(-5.5px) rotate(-45deg);
+}
+
+.nav-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 332px;
+  max-width: calc(100vw - 48px);
+  background: var(--paper);
+  border: 2.5px solid var(--ink);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+  flex-direction: column;
+  gap: 3px;
+  display: none;
+}
+
+.site-nav.open .nav-panel {
+  display: flex;
+  animation: navDrop 0.18s ease;
+}
+
+@keyframes navDrop {
+  from {
+    transform: translateY(-8px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.np-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+  color: var(--ink);
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+
+.np-link:hover {
+  background: var(--cream-2);
+  border-color: var(--ink);
+}
+
+.np-link.active {
+  background: var(--coral);
+  border-color: var(--ink);
+}
+
+.np-num {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  width: 18px;
+  flex-shrink: 0;
+}
+
+.np-link.active .np-num {
+  color: var(--ink);
+}
+
+.np-txt {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.18;
+}
+
+.np-name {
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.np-desc {
+  font-family: "Instrument Serif", serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.np-link.active .np-desc {
+  color: var(--ink-2);
+}
+
+.np-divider {
+  height: 2px;
+  background: rgba(28, 24, 20, 0.12);
+  margin: 8px 6px;
+  border-radius: 2px;
+}
+
+.np-palette {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 14px 6px;
+}
+
+.np-palette .pl {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.np-palette .palette-switcher {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+  gap: 9px;
+}
+
+.np-palette .palette-switcher .ps-label {
+  display: none;
 }
 
 /* PALETTE SWITCHER */
@@ -2301,32 +2526,31 @@ body[data-palette="cream"] .compare-pane.good {
     padding: 16px 16px 100px;
   }
 
-  .top-bar {
-    bottom: 20px;
-    top: auto;
-    right: 16px;
-    flex-wrap: wrap;
-    gap: 6px;
-    justify-content: flex-end;
+  .site-nav {
+    top: 10px;
+    padding: 8px 8px 8px 14px;
+    margin-bottom: 24px;
   }
 
-  .palette-switcher {
-    padding: 6px 10px 6px 14px;
-    gap: 6px;
-  }
-
-  .palette-switcher .ps-label {
+  .nav-crumb {
     display: none;
+  }
+
+  .nav-brand {
+    font-size: 16px;
+  }
+
+  .nav-toggle {
+    padding: 8px 12px;
+  }
+
+  .nav-toggle .tlabel {
+    font-size: 11px;
   }
 
   .palette-switcher .ps-swatch {
     width: 18px;
     height: 18px;
-  }
-
-  .nav-link {
-    padding: 6px 12px;
-    font-size: 12px;
   }
 
   .tags {

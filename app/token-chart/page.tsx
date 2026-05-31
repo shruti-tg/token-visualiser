@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import SiteNav from "../SiteNav";
 import { usePalette, writePalette } from "../palette";
 import "./token-chart.css";
 
@@ -588,24 +588,6 @@ export default function TokenChartPage() {
         {tooltipContent}
       </div>
 
-      <div className="top-bar">
-        <Link href="/" className="back-link" title="back to the ledger">
-          <span>←</span> <span>the ledger</span>
-        </Link>
-        <div className="palette-switcher">
-          <span className="ps-label">palette</span>
-          {["workshop", "cream", "sage", "plum", "slate"].map((p) => (
-            <button
-              key={p}
-              className={`ps-swatch ${palette === p ? "active" : ""}`}
-              data-pal={p}
-              title={p}
-              aria-label={`${p} palette`}
-              onClick={() => writePalette(p)}
-            />
-          ))}
-        </div>
-      </div>
 
       <nav className="rail" aria-label="section navigation">
         {RAIL_SECTIONS.map((s) => (
@@ -621,6 +603,7 @@ export default function TokenChartPage() {
       </nav>
 
       <div className="page">
+        <SiteNav active="billing" palette={palette} onPaletteChange={writePalette} />
         <div className="tags">
           <span className="pill coral">
             <span className="star">★</span> how it&apos;s built

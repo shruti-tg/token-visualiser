@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
+import SiteNav from "../SiteNav";
 
 interface Datum {
   i: number;
@@ -493,23 +494,7 @@ export default function Guide() {
   return (
     <div style={{ backgroundColor: "var(--cream)" }}>
       <div className="page">
-        <div className="top-bar">
-          <Link href="/" className="nav-link" title="back to the ledger">
-            <span className="ar">←</span> <span>the ledger</span>
-          </Link>
-          <div className="palette-switcher">
-            <span className="ps-label">palette</span>
-            {["workshop", "cream", "sage", "plum", "slate"].map((p) => (
-              <button
-                key={p}
-                className={`ps-swatch ${palette === p ? "active" : ""}`}
-                data-pal={p}
-                onClick={() => setPalette(p)}
-                aria-label={`${p} palette`}
-              />
-            ))}
-          </div>
-        </div>
+        <SiteNav active="guide" palette={palette} onPaletteChange={setPalette} />
 
         <div className="tags">
           <span className="pill coral">

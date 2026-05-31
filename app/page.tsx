@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import SiteNav from "./SiteNav";
 import { usePalette, writePalette } from "./palette";
 
 // Anthropic list pricing ($/M tokens). Cache write = 1.25× input, cache read = 0.1× input.
@@ -669,31 +669,7 @@ export default function Home() {
   return (
     <div style={{ backgroundColor: "var(--cream)" }}>
       <div className="page">
-        {/* Top bar: guide link + palette switcher */}
-        <div className="top-bar">
-          <Link
-            href="/token-chart"
-            className="nav-link"
-            title="how the token chart is built"
-          >
-            <span>how it&apos;s built</span> <span className="ar">→</span>
-          </Link>
-          <Link href="/guide" className="nav-link" title="open the saver guide">
-            <span>the saver guide</span> <span className="ar">→</span>
-          </Link>
-          <div className="palette-switcher">
-            <span className="ps-label">palette</span>
-            {["workshop", "cream", "sage", "plum", "slate"].map((p) => (
-              <button
-                key={p}
-                className={`ps-swatch ${palette === p ? "active" : ""}`}
-                data-pal={p}
-                onClick={() => writePalette(p)}
-                aria-label={`${p} palette`}
-              />
-            ))}
-          </div>
-        </div>
+        <SiteNav active="ledger" palette={palette} onPaletteChange={writePalette} />
 
         {/* Tags */}
         <div className="tags">
