@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import SiteNav from "../SiteNav";
 import { usePalette, writePalette } from "../palette";
 
@@ -49,28 +49,28 @@ const RULES: Record<number, Rule> = {
     badTitle: "sonnet → opus → sonnet",
     goodTitle: "sonnet, start to finish",
     bad: [
-      N(18, 28000, 600, 420),
-      N(22, 32000, 500, 380),
-      N(20, 36000, 600, 510),
-      N(28, 0, 115000, 620),
-      N(22, 18000, 500, 470),
-      N(20, 32000, 600, 440),
-      N(25, 45000, 700, 450),
-      N(28, 0, 155000, 620),
-      N(22, 22000, 500, 470),
-      N(20, 38000, 600, 440),
+      N(18, 8000, 800, 420),
+      N(22, 14000, 500, 380),
+      N(20, 22000, 600, 510),
+      N(28, 0, 60000, 620),
+      N(22, 65000, 500, 470),
+      N(20, 72000, 600, 440),
+      N(25, 80000, 700, 450),
+      N(28, 0, 110000, 620),
+      N(22, 118000, 500, 470),
+      N(20, 126000, 600, 440),
     ],
     good: [
-      N(18, 28000, 800, 420),
-      N(22, 32000, 500, 380),
-      N(20, 36000, 600, 510),
-      N(25, 40000, 700, 450),
-      N(19, 44000, 400, 390),
-      N(24, 48000, 600, 480),
-      N(20, 52000, 800, 420),
-      N(22, 55000, 500, 400),
-      N(21, 58000, 600, 470),
-      N(20, 61000, 400, 380),
+      N(18, 8000, 800, 420),
+      N(22, 14000, 500, 380),
+      N(20, 22000, 600, 510),
+      N(28, 58000, 800, 620),
+      N(22, 65000, 500, 470),
+      N(20, 72000, 600, 440),
+      N(25, 80000, 700, 450),
+      N(28, 108000, 800, 620),
+      N(22, 118000, 500, 470),
+      N(20, 126000, 600, 440),
     ],
     takeaway:
       "Two switches, at call 4 and call 8 — each one re-uploads the entire conversation to the new model's cache. Those two calls alone cost more than the other eight combined.",
@@ -274,6 +274,12 @@ function totalOf(d: Datum): number {
   return d.i + d.cr + d.cw + d.o;
 }
 
+// Relative cost weights based on Anthropic pricing: cache reads are ~10x cheaper
+// than input, cache writes are 1.25x more expensive, output is 5x.
+function costOf(d: Datum): number {
+  return d.i * 1 + d.cr * 0.1 + d.cw * 1.25 + d.o * 5;
+}
+
 function fmtCompact(n: number): string {
   if (!n) return "0";
   if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
@@ -434,8 +440,7 @@ const PALETTE_COLORS: Record<
 
 export default function Guide() {
   const palette = usePalette();
-  // modal temporarily disabled — cards are display-only for now
-  // const [openRuleNum, setOpenRuleNum] = useState<number | null>(null);
+  const [openRuleNum, setOpenRuleNum] = useState<number | null>(null);
 
   const colors = useMemo(
     () => PALETTE_COLORS[palette] ?? PALETTE_COLORS.workshop,
@@ -446,51 +451,56 @@ export default function Guide() {
     document.body.setAttribute("data-palette", palette);
   }, [palette]);
 
-  // useEffect(() => {
-  //   if (openRuleNum === null) {
-  //     document.body.style.overflow = "";
-  //     return;
-  //   }
-  //   document.body.style.overflow = "hidden";
-  //   const onKey = (e: KeyboardEvent) => {
-  //     if (e.key === "Escape") setOpenRuleNum(null);
-  //   };
-  //   document.addEventListener("keydown", onKey);
-  //   return () => {
-  //     document.removeEventListener("keydown", onKey);
-  //     document.body.style.overflow = "";
-  //   };
-  // }, [openRuleNum]);
+  useEffect(() => {
+    if (openRuleNum === null) {
+      document.body.style.overflow = "";
+      return;
+    }
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenRuleNum(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [openRuleNum]);
 
-  // const closeModal = useCallback(() => setOpenRuleNum(null), []);
-  // const onCardKey = (
-  //   e: React.KeyboardEvent<HTMLElement>,
-  //   ruleNum: number,
-  // ) => {
-  //   if (e.key === "Enter" || e.key === " ") {
-  //     e.preventDefault();
-  //     setOpenRuleNum(ruleNum);
-  //   }
-  // };
+  const closeModal = useCallback(() => setOpenRuleNum(null), []);
+  const onCardKey = (
+    e: React.KeyboardEvent<HTMLElement>,
+    ruleNum: number,
+  ) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpenRuleNum(ruleNum);
+    }
+  };
 
-  const chap = (_ruleNum: number, extraClass: string, body: ReactNode) => (
-    // modal trigger temporarily disabled — cards are display-only for now
-    <article className={`chap ${extraClass}`}>
+  const chap = (ruleNum: number, extraClass: string, body: ReactNode) => (
+    <article
+      className={`chap ${extraClass}`}
+      role="button"
+      tabIndex={0}
+      style={{ cursor: "pointer" }}
+      onClick={() => setOpenRuleNum(ruleNum)}
+      onKeyDown={(e) => onCardKey(e, ruleNum)}
+    >
       {body}
-      {/* <span className="open-hint">
-        see the chart <span style={{ fontSize: 14 }}>→</span>
-      </span> */}
     </article>
   );
 
-  // const rule = openRuleNum !== null ? RULES[openRuleNum] : null;
-  // const badTotal = rule ? rule.bad.reduce((a, d) => a + totalOf(d), 0) : 0;
-  // const goodTotal = rule ? rule.good.reduce((a, d) => a + totalOf(d), 0) : 0;
-  // const sharedMax = rule
-  //   ? Math.max(...rule.bad.map(totalOf), ...rule.good.map(totalOf), 1)
-  //   : 1;
-  // const savedTokens = badTotal - goodTotal;
-  // const savedPct = badTotal > 0 ? Math.round((savedTokens / badTotal) * 100) : 0;
+  const rule = openRuleNum !== null ? RULES[openRuleNum] : null;
+  const badTotal = rule ? rule.bad.reduce((a, d) => a + totalOf(d), 0) : 0;
+  const goodTotal = rule ? rule.good.reduce((a, d) => a + totalOf(d), 0) : 0;
+  const sharedMax = rule
+    ? Math.max(...rule.bad.map(totalOf), ...rule.good.map(totalOf), 1)
+    : 1;
+  const badCost = rule ? rule.bad.reduce((a, d) => a + costOf(d), 0) : 0;
+  const goodCost = rule ? rule.good.reduce((a, d) => a + costOf(d), 0) : 0;
+  const savedPct =
+    badCost > 0 ? Math.round((1 - goodCost / badCost) * 100) : 0;
 
   return (
     <div style={{ backgroundColor: "var(--cream)" }}>
@@ -530,7 +540,7 @@ export default function Guide() {
                 />
               </svg>
             </span>
-            <em>(the expensive ones.)</em>
+            <em>save the bill.</em>
           </span>
         </h1>
 
@@ -914,7 +924,6 @@ export default function Guide() {
         </footer>
       </div>
 
-      {/* modal temporarily disabled — restore alongside the cards' click handler
       {rule && (
         <div
           className="modal-backdrop show"
@@ -1007,10 +1016,10 @@ export default function Guide() {
                 output
               </span>
             </div>
-            {savedTokens > 0 && (
+            {savedPct > 0 && (
               <div className="savings-ribbon">
-                <span className="delta">{fmtCompact(savedTokens)} tokens</span>{" "}
-                saved across the session <em>· {savedPct}% lighter</em>
+                <span className="delta">{savedPct}% cheaper</span> across the
+                session <em>· same conversation, smaller bill</em>
               </div>
             )}
             <div className="takeaway">
@@ -1020,7 +1029,6 @@ export default function Guide() {
           </div>
         </div>
       )}
-      */}
     </div>
   );
 }
