@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import SiteNav from "./SiteNav";
+import TokenLoader from "./TokenLoader";
 import { usePalette, writePalette } from "./palette";
 
 // Anthropic list pricing ($/M tokens). Cache write = 1.25× input, cache read = 0.1× input.
@@ -329,6 +330,7 @@ export default function Home() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [sourceLabel, setSourceLabel] = useState("none loaded");
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     document.body.setAttribute("data-palette", palette);
@@ -489,36 +491,47 @@ export default function Home() {
     }
 
     setError(null);
+    setIsLoading(true);
     const reader = new FileReader();
     reader.onload = (e) => {
-      try {
-        const text = e.target?.result as string;
-        if (!text.trim()) {
-          setError(
-            "❌ file is empty. drop a claude code session with message.usage blocks.",
-          );
-          setStats(null);
-          return;
-        }
-        const parsed = parseTranscript(text);
-        if (parsed.turns.length === 0) {
-          setError(
-            "❌ no valid data found. we need a claude code session jsonl with message.usage blocks. try a demo?",
-          );
-          setStats(null);
-          return;
-        }
-        setStats(parsed);
-        setSourceLabel(file.name);
-        setError(null);
-      } catch {
-        setError("❌ couldn't read file. make sure it's valid .jsonl format.");
-        setStats(null);
-      }
+      const text = e.target?.result as string;
+      // Defer the synchronous parse so the loader actually paints first.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try {
+            if (!text.trim()) {
+              setError(
+                "❌ file is empty. drop a claude code session with message.usage blocks.",
+              );
+              setStats(null);
+              return;
+            }
+            const parsed = parseTranscript(text);
+            if (parsed.turns.length === 0) {
+              setError(
+                "❌ no valid data found. we need a claude code session jsonl with message.usage blocks. try a demo?",
+              );
+              setStats(null);
+              return;
+            }
+            setStats(parsed);
+            setSourceLabel(file.name);
+            setError(null);
+          } catch {
+            setError(
+              "❌ couldn't read file. make sure it's valid .jsonl format.",
+            );
+            setStats(null);
+          } finally {
+            setIsLoading(false);
+          }
+        });
+      });
     };
     reader.onerror = () => {
       setError("❌ error reading file. try again?");
       setStats(null);
+      setIsLoading(false);
     };
     reader.readAsText(file);
   };
@@ -668,8 +681,13 @@ export default function Home() {
 
   return (
     <div style={{ backgroundColor: "var(--cream)" }}>
+      {/* {isLoading ? <TokenLoader palette={palette} /> : null} */}
       <div className="page">
-        <SiteNav active="ledger" palette={palette} onPaletteChange={writePalette} />
+        <SiteNav
+          active="ledger"
+          palette={palette}
+          onPaletteChange={writePalette}
+        />
 
         {/* Tags */}
         <div className="tags">

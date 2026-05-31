@@ -200,6 +200,44 @@ body {
   line-height: 1.35;
 }
 
+/* TOKEN SPILL — coins tumble off the nav bar on page load */
+.token-spill {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 115;
+  overflow: hidden;
+}
+
+.token-coin {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--ink);
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--ink);
+  box-shadow: 2px 2px 0 var(--ink);
+  will-change: transform;
+}
+
+.token-coin.c-coral { background: var(--coral); }
+.token-coin.c-blue  { background: var(--blue); color: var(--paper); }
+.token-coin.c-mint  { background: var(--mint); }
+.token-coin.c-pink  { background: var(--pink); }
+.token-coin.c-gold  { background: var(--gold); }
+.token-coin.c-paper { background: var(--paper); }
+
+@media (prefers-reduced-motion: reduce) {
+  .token-spill { display: none; }
+}
+
 /* COLLAPSIBLE SITE NAV */
 .site-nav {
   position: sticky;
@@ -253,6 +291,27 @@ body {
   padding: 2px 8px;
   color: var(--ink);
   flex-shrink: 0;
+}
+
+.nav-favicon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  transition: transform 0.15s ease;
+}
+
+.nav-favicon:hover {
+  transform: translateY(-1px);
+}
+
+.nav-favicon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .nav-crumb {
@@ -2544,6 +2603,11 @@ body[data-palette="cream"] .compare-pane.good {
 
   .nav-ver {
     display: none;
+  }
+
+  .nav-favicon {
+    width: 24px;
+    height: 24px;
   }
 
   .nav-crumb {
