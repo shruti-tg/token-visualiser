@@ -809,3 +809,376 @@ h1.hero .leak:focus-visible .alibi-tip {
     flex: 1 1 200px;
   }
 }
+
+/* ============================================================
+   REPLAY LOADER — full-viewport overlay shown while a dropped
+   project is parsed. Ported from the "Replay Loader" design.
+   (Overlay class renamed from .stage → .rl-overlay to avoid
+   colliding with the workspace .stage above.)
+   ============================================================ */
+.rl-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: var(--cream);
+  color: var(--ink);
+  background-image: radial-gradient(rgba(28, 24, 20, 0.13) 1.1px, transparent 1.3px);
+  background-size: 22px 22px;
+  background-position: 0 0;
+  padding: 24px;
+}
+
+.rl-overlay .loader-card {
+  width: min(640px, calc(100vw - 48px));
+  background: var(--paper);
+  border: 2.5px solid var(--ink);
+  border-radius: 30px;
+  box-shadow: var(--shadow);
+  padding: 26px 30px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* top row */
+.rl-overlay .lc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.rl-overlay .lc-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+.rl-overlay .lc-brand .star {
+  color: var(--coral);
+  font-size: 15px;
+  display: inline-block;
+  animation: rl-spin 3.4s linear infinite;
+}
+@keyframes rl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.rl-overlay .lc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  padding: 4px 11px;
+  color: var(--ink);
+}
+.rl-overlay .lc-chip .blip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--coral);
+  animation: rl-blip 1s steps(2) infinite;
+}
+@keyframes rl-blip {
+  50% {
+    opacity: 0.18;
+  }
+}
+
+/* headline */
+.rl-overlay .lc-head {
+  margin: 18px 0 4px;
+}
+.rl-overlay .lc-title {
+  font-weight: 800;
+  font-size: clamp(30px, 5vw, 40px);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  margin: 0;
+  font-variation-settings: "wdth" 95, "opsz" 96;
+}
+.rl-overlay .lc-title em {
+  font-family: "Instrument Serif", serif;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--coral);
+}
+.rl-overlay .lc-sub {
+  margin: 7px 0 0;
+  font-family: "Instrument Serif", serif;
+  font-style: italic;
+  font-size: 18px;
+  color: var(--ink-2);
+}
+
+/* ===== SCRUBBER ===== */
+.rl-stage {
+  margin-top: 22px;
+}
+.rl-scrub {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.rl-play {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2.5px solid var(--ink);
+  background: var(--coral);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-family: inherit;
+  letter-spacing: -1px;
+  cursor: default;
+  padding: 0;
+}
+.rl-track-wrap {
+  flex: 1;
+  min-width: 0;
+}
+.rl-track {
+  position: relative;
+  height: 16px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--cream);
+}
+.rl-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--coral);
+  border-radius: 999px;
+  width: 0;
+}
+.rl-handle {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2.5px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 2px 2px 0 var(--ink);
+  transform: translate(-50%, -50%);
+  z-index: 3;
+}
+.rl-mark {
+  position: absolute;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--ink);
+  background: var(--cat, var(--coral));
+  transform: translate(-50%, -50%) rotate(45deg);
+  border-radius: 2px;
+  z-index: 2;
+  transition:
+    box-shadow 0.22s ease,
+    width 0.18s ease,
+    height 0.18s ease;
+}
+.rl-mark.lit {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--cat, var(--coral)) 30%, transparent);
+}
+.rl-stage[data-glow="0"] .rl-mark.lit {
+  box-shadow: none;
+}
+
+.rl-pos {
+  margin: 10px 0 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.rl-pos b {
+  color: var(--coral);
+}
+
+/* ===== THREAD ===== */
+.rl-thread {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 16px;
+  padding-left: 6px;
+}
+.rl-thread::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 7px;
+  bottom: 7px;
+  width: 2px;
+  background: rgba(28, 24, 20, 0.16);
+}
+.rl-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  opacity: 0.24;
+  filter: saturate(0.4);
+  transition:
+    opacity 0.35s ease,
+    filter 0.35s ease;
+}
+.rl-row.on {
+  opacity: 1;
+  filter: none;
+}
+.rl-dot {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  z-index: 1;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
+}
+.rl-dot.k-user {
+  background: var(--ink);
+}
+.rl-dot.k-asst {
+  background: var(--coral);
+}
+.rl-dot.k-tool {
+  background: var(--mint);
+}
+.rl-dot.k-out {
+  background: var(--cream-2);
+}
+.rl-dot.leak {
+  border-radius: 3px;
+  transform: rotate(45deg);
+}
+.rl-bar {
+  height: 13px;
+  border: 2px solid var(--ink);
+  border-radius: 7px;
+  background: var(--cream-2);
+  transition:
+    background 0.3s ease,
+    border-color 0.3s ease;
+}
+
+/* current playhead row — the dot pulses (pop intensity controlled by data-pop) */
+.rl-row.cur .rl-dot {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--coral) 26%, transparent);
+}
+.rl-stage[data-pop="subtle"] .rl-row.cur .rl-dot {
+  transform: scale(1.18);
+}
+.rl-stage[data-pop="snappy"] .rl-row.cur .rl-dot {
+  transform: scale(1.4);
+}
+.rl-stage[data-pop="springy"] .rl-row.cur .rl-dot {
+  transform: scale(1.6);
+}
+.rl-stage[data-pop="subtle"] .rl-row.cur .rl-dot.leak {
+  transform: rotate(45deg) scale(1.18);
+}
+.rl-stage[data-pop="snappy"] .rl-row.cur .rl-dot.leak {
+  transform: rotate(45deg) scale(1.4);
+}
+.rl-stage[data-pop="springy"] .rl-row.cur .rl-dot.leak {
+  transform: rotate(45deg) scale(1.6);
+}
+
+/* lit leak row — dot recolours to its category, bar tints */
+.rl-row.lit .rl-dot {
+  background: var(--cat);
+  border-color: var(--cat);
+}
+.rl-stage[data-glow="1"] .rl-row.lit .rl-dot {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--cat) 26%, transparent);
+}
+.rl-row.lit .rl-bar {
+  background: color-mix(in srgb, var(--cat) 16%, var(--paper));
+  border-color: var(--cat);
+}
+
+/* ===== FOOT: status + tally ===== */
+.rl-overlay .lc-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 20px;
+  min-height: 20px;
+}
+.rl-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.rl-status .car {
+  display: inline-block;
+  width: 8px;
+  height: 15px;
+  background: var(--coral);
+  animation: rl-blip 1s steps(2) infinite;
+  flex-shrink: 0;
+}
+.rl-status .txt {
+  transition: opacity 0.28s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rl-tally {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+  flex-shrink: 0;
+}
+.rl-tally b {
+  color: var(--coral);
+  font-size: 17px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rl-overlay .lc-brand .star,
+  .rl-overlay .lc-chip .blip,
+  .rl-status .car {
+    animation: none;
+  }
+  .rl-row {
+    opacity: 1;
+    filter: none;
+    transition: none;
+  }
+  .rl-dot,
+  .rl-bar,
+  .rl-mark {
+    transition: none;
+  }
+}

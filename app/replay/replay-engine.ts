@@ -79,10 +79,14 @@ export type Category =
   | "bloat"
   | "output"
   | "switch"
-  | "win";
+  | "win"
+  | "compact-win";
 
 /** categories that are good things, not leaks — excluded from leak counts */
-export const WIN_CATEGORIES: ReadonlySet<Category> = new Set<Category>(["win"]);
+export const WIN_CATEGORIES: ReadonlySet<Category> = new Set<Category>([
+  "win",
+  "compact-win",
+]);
 export const isWin = (c: Category) => WIN_CATEGORIES.has(c);
 
 export interface Annotation {
@@ -434,6 +438,11 @@ export function parseSessionJsonl(text: string): TimelineItem[] {
 /* match an @-mention of a file path in a user prompt, e.g. @app/replay/x.ts */
 const _ATMENTION = /(?:^|\s)@([\w./-]+\.\w+)/;
 
+/* the summary message Claude Code injects after a /compact, surfaced in the
+   timeline as a user turn. used to flag the compact on its own row. */
+const _COMPACT_SUMMARY =
+  /^This session is being continued from a previous conversation/i;
+
 /* =====================================================================
    ANALYZER — scan the timeline for leaks (and the occasional good move).
    leak categories: redundant | bloat | output
@@ -534,6 +543,45 @@ export function analyzeTimeline(items: TimelineItem[]): Annotation[] {
       });
       bloated = true;
     }
+  }
+
+  /* 2.5 — win: a manual /compact while the window was still roomy. an
+         auto-compact only fires near the limit, so a big context drop that
+         lands while the previous turn was still under 70% of the window can
+         only be a deliberate /compact — a genuinely good habit, since every
+         later turn re-reads a lighter context. */
+  let prevUsage: Usage | null = null;
+  for (const it of items) {
+    if (!it.usage) continue;
+    const cur = it.usage;
+    if (prevUsage && prevUsage.ctx >= 10_000 && !used.has(it.idx)) {
+      const drop = (prevUsage.ctx - cur.ctx) / prevUsage.ctx;
+      const compacted = drop > 0.4 && cur.cWrite > 1500;
+      const roomy = prevUsage.ctx < windowSize * 0.7;
+      if (compacted && roomy) {
+        const pct = Math.round((prevUsage.ctx / windowSize) * 100);
+        const shedK = Math.round((prevUsage.ctx - cur.ctx) / 1000);
+        // the compact shows up as a "continued from a previous conversation"
+        // summary in a user turn just before this one — flag that row, not the
+        // assistant reply where the dropped usage happens to surface.
+        let target = it.idx;
+        for (let j = it.idx - 1; j >= 0; j--) {
+          if (items[j].usage) break; // don't cross into the pre-compact turn
+          if (items[j].kind === "user" && _COMPACT_SUMMARY.test(items[j].text || "")) {
+            target = items[j].idx;
+            break;
+          }
+        }
+        push({
+          targetIdx: target,
+          category: "compact-win",
+          title: "compacted early, on purpose",
+          body: `the context was only at <b>${pct}%</b> of the window when this <b>/compact</b> ran — well before anything forced it. shedding ~<b>${shedK}k</b> tokens here keeps every later turn lighter to re-read. a genuinely good habit.`,
+          tag: "context",
+        });
+      }
+    }
+    prevUsage = cur;
   }
 
   /* 3 — oversized output */
@@ -665,6 +713,7 @@ export const CAT_COLORS: Record<Category, string> = {
   output: "var(--coral)",
   switch: "var(--gold)",
   win: "var(--mint)",
+  "compact-win": "var(--mint)",
 };
 
 export const CAT_LABEL: Record<Category, string> = {
@@ -674,4 +723,5 @@ export const CAT_LABEL: Record<Category, string> = {
   output: "big output",
   switch: "model switch",
   win: "scoped with @",
+  "compact-win": "early /compact",
 };

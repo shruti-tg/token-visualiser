@@ -20,6 +20,7 @@ import {
   type TimelineItem,
 } from "./replay-engine";
 import { REPLAY_DEMOS } from "./replay-demos";
+import ReplayLoader from "./ReplayLoader";
 import "./replay.css";
 
 const INTRO_FAST = 150;
@@ -34,6 +35,7 @@ export default function Replay() {
   const [playing, setPlaying] = useState(false);
   const [wide, setWide] = useState(true);
   const [nudge, setNudge] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const stageScrollRef = useRef<HTMLDivElement | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -114,6 +116,7 @@ export default function Replay() {
 
   /* ---------- load a project ---------- */
   const loadProject = useCallback((raw: Project) => {
+    setLoading(false);
     const prepared = prepareProject(raw);
     setProject(prepared);
     setActiveFile(0);
@@ -342,8 +345,10 @@ export default function Replay() {
       const first = fl[0] as File & { webkitRelativePath?: string };
       if (first.webkitRelativePath)
         folderName = first.webkitRelativePath.split("/")[0];
+      setLoading(true);
       const proj = await buildProjectFromFiles([...fl], folderName);
       if (proj) loadProject(proj);
+      else setLoading(false);
     },
     [loadProject],
   );
@@ -354,8 +359,10 @@ export default function Replay() {
       if (!fl || !fl.length) return;
       const label =
         fl.length === 1 ? fl[0].name : `${fl.length} selected files`;
+      setLoading(true);
       const proj = await buildProjectFromFiles([...fl], label);
       if (proj) loadProject(proj);
+      else setLoading(false);
     },
     [loadProject],
   );
@@ -440,15 +447,19 @@ export default function Replay() {
         if (entries[0] && entries[0].isDirectory) folderName = entries[0].name;
         for (const en of entries) await walkEntry(en, collected);
         if (collected.length) {
+          setLoading(true);
           const proj = await buildProjectFromFiles(collected, folderName);
           if (proj) loadProject(proj);
+          else setLoading(false);
           return;
         }
       }
       const fl = [...(dt.files || [])];
       if (fl.length) {
+        setLoading(true);
         const proj = await buildProjectFromFiles(fl, folderName);
         if (proj) loadProject(proj);
+        else setLoading(false);
       }
     };
     document.addEventListener("drop", onDrop);
@@ -486,6 +497,7 @@ export default function Replay() {
 
   return (
     <div style={{ backgroundColor: "var(--cream)" }}>
+      {loading && <ReplayLoader />}
       <div className="drag-overlay" id="dragOverlay">
         drop the folder.
       </div>
