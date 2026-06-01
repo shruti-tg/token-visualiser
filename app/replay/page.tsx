@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import SiteNav from "../SiteNav";
 import { usePalette, writePalette } from "../palette";
 import {
@@ -208,9 +215,7 @@ export default function Replay() {
             `.ti[data-idx="${idx}"]`,
           );
           const top = row
-            ? row.getBoundingClientRect().top -
-              baseTop +
-              stageScroll.scrollTop
+            ? row.getBoundingClientRect().top - baseTop + stageScroll.scrollTop
             : 0;
           return { c: c as HTMLElement, top };
         })
@@ -268,13 +273,18 @@ export default function Replay() {
           const cr = c.getBoundingClientRect();
           const x2 = c.offsetLeft;
           const y2 =
-            cr.top - base.top + stageScroll.scrollTop + Math.min(cr.height, 40) / 2;
+            cr.top -
+            base.top +
+            stageScroll.scrollTop +
+            Math.min(cr.height, 40) / 2;
           const col = getComputedStyle(c).borderTopColor;
-          const dx = x1 - x2, dy = y1 - y2;
+          const dx = x1 - x2,
+            dy = y1 - y2;
           const len = Math.sqrt(dx * dx + dy * dy) || 1;
           const n = Math.max(4, Math.round(len / 28));
           const amp = 7;
-          const px = -dy / len, py = dx / len;
+          const px = -dy / len,
+            py = dx / len;
           let d = `M ${x2} ${y2}`;
           for (let i = 1; i <= n; i++) {
             const t0 = (i - 0.5) / n;
@@ -360,9 +370,7 @@ export default function Replay() {
   /* clicking the field doesn't pick — it points the user at the buttons */
   const flashButtons = useCallback(() => {
     setNudge(false);
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => setNudge(true)),
-    );
+    requestAnimationFrame(() => requestAnimationFrame(() => setNudge(true)));
   }, []);
 
   const openFilePicker = useCallback(() => {
@@ -483,17 +491,28 @@ export default function Replay() {
       </div>
 
       <div className="page">
-        <SiteNav active="replay" palette={palette} onPaletteChange={writePalette} />
+        <SiteNav
+          active="replay"
+          palette={palette}
+          onPaletteChange={writePalette}
+        />
 
         {/* HERO */}
         <h1 className="hero">
-          where the
+          every token
           <br />
-          tokens <span className="leak">leaked.</span>
+          has an{" "}
+          <span className="leak" tabIndex={0}>
+            alibi.
+            <span className="alibi-tip" role="tooltip">
+              &ldquo;your honor, i <em>object </em> to being counted.&rdquo; — a
+              token, billed anyway
+            </span>
+          </span>
         </h1>
         <p className="lede">
-          drop a whole project folder. we open every <em>session log</em> inside,
-          lay it out as a chat, and{" "}
+          drop a whole project folder. we open every <em>session log</em>{" "}
+          inside, lay it out as a chat, and{" "}
           <span className="coral">scrub the timeline</span> — leaks annotate
           themselves as you go. all client-side.
         </p>
@@ -553,7 +572,10 @@ export default function Replay() {
 
         <div className="try-row">
           <span className="label">or try a demo project:</span>
-          <button className="chip" onClick={() => loadDemo("checkout-refactor")}>
+          <button
+            className="chip"
+            onClick={() => loadDemo("checkout-refactor")}
+          >
             <b>checkout-refactor</b>
             <span className="dot"></span>
             <em>3 sessions</em>
@@ -976,10 +998,7 @@ function TimelineRow({
         {it.diff && (
           <div className="diff">
             {it.diff.map((d, di) => (
-              <div
-                key={di}
-                className={`dl ${d.t === "-" ? "minus" : "plus"}`}
-              >
+              <div key={di} className={`dl ${d.t === "-" ? "minus" : "plus"}`}>
                 {d.t} {d.text}
               </div>
             ))}
