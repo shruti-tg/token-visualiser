@@ -283,6 +283,12 @@ body {
   font-style: normal;
 }
 
+.nav-crumb .dot {
+  margin: 0 7px;
+  color: var(--muted);
+  font-style: normal;
+}
+
 .nav-crumb b {
   font-style: normal;
   font-weight: 800;

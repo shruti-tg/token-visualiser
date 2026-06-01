@@ -11,6 +11,7 @@ interface NavLink {
   num: string;
   name: string;
   desc: string;
+  tag: string;
 }
 
 const LINKS: NavLink[] = [
@@ -20,6 +21,7 @@ const LINKS: NavLink[] = [
     num: "01",
     name: "the ledger",
     desc: "drop a session, read the receipts",
+    tag: "read the receipts",
   },
   {
     key: "billing",
@@ -27,6 +29,7 @@ const LINKS: NavLink[] = [
     num: "02",
     name: "how it's built",
     desc: "the token chart, explained",
+    tag: "the chart, explained",
   },
   {
     key: "guide",
@@ -34,6 +37,7 @@ const LINKS: NavLink[] = [
     num: "03",
     name: "the saver guide",
     desc: "10 ways to spend fewer tokens",
+    tag: "spend fewer tokens",
   },
   {
     key: "replay",
@@ -41,6 +45,7 @@ const LINKS: NavLink[] = [
     num: "04",
     name: "the replay",
     desc: "scrub a session, catch the leaks",
+    tag: "scrub a session",
   },
 ];
 
@@ -126,6 +131,8 @@ export default function SiteNav({
         <span className="nav-crumb">
           <span className="sep">/</span>
           <b>{activeLink.name}</b>
+          <span className="dot">·</span>
+          {activeLink.tag}
         </span>
       </div>
       <button
