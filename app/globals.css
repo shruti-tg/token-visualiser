@@ -191,44 +191,6 @@ body {
   line-height: 1.35;
 }
 
-/* TOKEN SPILL — coins tumble off the nav bar on page load */
-.token-spill {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 115;
-  overflow: hidden;
-}
-
-.token-coin {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  border: 2px solid var(--ink);
-  font-family: "JetBrains Mono", monospace;
-  font-weight: 700;
-  font-size: 12px;
-  color: var(--ink);
-  box-shadow: 2px 2px 0 var(--ink);
-  will-change: transform;
-}
-
-.token-coin.c-coral { background: var(--coral); }
-.token-coin.c-blue  { background: var(--blue); color: var(--paper); }
-.token-coin.c-mint  { background: var(--mint); }
-.token-coin.c-pink  { background: var(--pink); }
-.token-coin.c-gold  { background: var(--gold); }
-.token-coin.c-paper { background: var(--paper); }
-
-@media (prefers-reduced-motion: reduce) {
-  .token-spill { display: none; }
-}
-
 /* COLLAPSIBLE SITE NAV */
 .site-nav {
   position: sticky;
@@ -727,9 +689,9 @@ h1.hero em {
   background: var(--paper);
   font-size: 20px;
   color: var(--ink-2);
-  cursor: pointer;
   min-width: 0;
   user-select: none;
+  cursor: pointer;
 }
 
 .visually-hidden {
@@ -806,6 +768,70 @@ h1.hero em {
 
 .cta:hover .arr {
   transform: translateX(4px);
+}
+
+.cta.ghost {
+  background: var(--paper);
+}
+
+.cta.ghost:hover {
+  background: #fff;
+}
+
+@keyframes cta-nudge {
+  0% {
+    transform: scale(1) translate(0, 0);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
+  15% {
+    transform: scale(1.08) translate(-3px, -3px) rotate(-1.5deg);
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+  35% {
+    transform: scale(1.04) translate(2px, 0) rotate(1.5deg);
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+  55% {
+    transform: scale(1.06) translate(-2px, -2px) rotate(-1deg);
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+  75% {
+    transform: scale(1.02) translate(1px, 0) rotate(0.5deg);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  100% {
+    transform: scale(1) translate(0, 0);
+    box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  }
+}
+
+.cta.nudge {
+  animation: cta-nudge 0.7s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes cta-nudge-tint {
+  0%,
+  100% {
+    background: var(--paper);
+  }
+  30%,
+  60% {
+    background: #ffd9c7;
+  }
+}
+
+.cta.ghost.nudge {
+  animation:
+    cta-nudge 0.7s cubic-bezier(0.36, 0.07, 0.19, 0.97),
+    cta-nudge-tint 0.7s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cta.nudge {
+    animation: none;
+  }
 }
 
 /* TRY CHIPS */

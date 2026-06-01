@@ -516,10 +516,10 @@ export default function Guide() {
         </div>
 
         <h1 className="hero">
-          save the
+          stop the
           <br />
           <span className="line2">
-            tokens.
+            bleed.
             <span className="arrow" aria-hidden="true">
               <svg width="110" height="96" viewBox="0 0 110 96" fill="none">
                 <path
@@ -540,7 +540,7 @@ export default function Guide() {
                 />
               </svg>
             </span>
-            <em>save the bill.</em>
+            <em>save the tokens.</em>
           </span>
         </h1>
 

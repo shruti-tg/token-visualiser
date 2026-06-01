@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-type ActivePage = "ledger" | "billing" | "guide";
+type ActivePage = "ledger" | "billing" | "guide" | "replay";
 
 interface NavLink {
   key: ActivePage;
@@ -34,6 +34,13 @@ const LINKS: NavLink[] = [
     num: "03",
     name: "the saver guide",
     desc: "10 ways to spend fewer tokens",
+  },
+  {
+    key: "replay",
+    href: "/replay",
+    num: "04",
+    name: "the replay",
+    desc: "scrub a session, catch the leaks",
   },
 ];
 
@@ -86,112 +93,6 @@ export default function SiteNav({
     }
     link.href = href;
   }, [palette]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const nav = navRef.current;
-    if (!nav) return;
-
-    const run = () => {
-      const r = nav.getBoundingClientRect();
-      const layer = document.createElement("div");
-      layer.className = "token-spill";
-      document.body.appendChild(layer);
-
-      const palette = ["c-coral", "c-blue", "c-mint", "c-pink", "c-gold", "c-paper"];
-      const glyphs = ["★", "$", "◆", "▲", "◇", "✦", "¢", "§"];
-      const N = 22;
-      type Coin = {
-        el: HTMLDivElement;
-        x: number;
-        y: number;
-        vx: number;
-        vy: number;
-        rot: number;
-        vr: number;
-        delay: number;
-        alive: boolean;
-      };
-      const coins: Coin[] = [];
-
-      for (let i = 0; i < N; i++) {
-        const el = document.createElement("div");
-        el.className = "token-coin " + palette[Math.floor(Math.random() * palette.length)];
-        el.textContent = glyphs[Math.floor(Math.random() * glyphs.length)];
-        const sz = 22 + Math.random() * 16;
-        el.style.width = el.style.height = sz + "px";
-        el.style.fontSize = sz * 0.42 + "px";
-        layer.appendChild(el);
-        coins.push({
-          el,
-          x: r.left + 12 + Math.random() * (r.width - 24),
-          y: r.bottom - 8 - Math.random() * r.height * 0.5,
-          vx: (Math.random() - 0.5) * 4.2,
-          vy: -2 - Math.random() * 3,
-          rot: Math.random() * 360,
-          vr: (Math.random() - 0.5) * 16,
-          delay: Math.random() * 340,
-          alive: true,
-        });
-      }
-
-      const G = 0.55;
-      const FLOOR = window.innerHeight + 60;
-      let start: number | null = null;
-      let rafId = 0;
-
-      const frame = (ts: number) => {
-        if (start === null) start = ts;
-        const elapsed = ts - start;
-        let any = false;
-        for (const c of coins) {
-          if (!c.alive) continue;
-          if (elapsed < c.delay) {
-            any = true;
-            continue;
-          }
-          c.vy += G;
-          c.x += c.vx;
-          c.y += c.vy;
-          c.rot += c.vr;
-          c.vx *= 0.995;
-          if (c.y > FLOOR) {
-            c.alive = false;
-            c.el.remove();
-            continue;
-          }
-          any = true;
-          const fade =
-            c.y > window.innerHeight - 140
-              ? Math.max(0, (FLOOR - c.y) / 200)
-              : 1;
-          c.el.style.transform = `translate(${c.x}px, ${c.y}px) rotate(${c.rot}deg)`;
-          c.el.style.opacity = String(fade);
-        }
-        if (any) rafId = requestAnimationFrame(frame);
-        else layer.remove();
-      };
-      rafId = requestAnimationFrame(frame);
-
-      return () => {
-        cancelAnimationFrame(rafId);
-        layer.remove();
-      };
-    };
-
-    let cleanup: (() => void) | undefined;
-    const r1 = requestAnimationFrame(() => {
-      const r2 = requestAnimationFrame(() => {
-        cleanup = run();
-      });
-      cleanup = () => cancelAnimationFrame(r2);
-    });
-    return () => {
-      cancelAnimationFrame(r1);
-      cleanup?.();
-    };
-  }, []);
 
   useEffect(() => {
     if (!open) return;
