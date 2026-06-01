@@ -833,7 +833,7 @@ export default function Replay() {
         </div>
 
         <footer className="foot">
-          <em>typeset in bricolage grotesque &amp; instrument serif.</em>
+          <em>no tokens were harmed in the making of this replay.</em>
           <span className="right">
             source ·{" "}
             {project
